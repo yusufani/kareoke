@@ -1,0 +1,57 @@
+[project]
+name = "karaoke-separation-studio"
+version = "1.0.0"
+description = "Professional karaoke application with AI-powered vocal separation"
+readme = "README.md"
+requires-python = ">=3.10,<3.14"
+license = {text = "MIT"}
+authors = [
+    {name = "Karaoke Pro Team"}
+]
+keywords = ["karaoke", "audio", "separation", "demucs", "vocals", "instrumental"]
+
+dependencies = [
+    "PySide6>=6.8.0",
+    "torch>=2.7.0",
+    "torchaudio>=2.7.0",
+    "demucs>=4.0.0",
+    "soundfile>=0.12.1",
+    "sounddevice>=0.4.6",
+    "numpy>=1.24.0,<3.0.0",
+    "scipy>=1.11.0",
+    "pyinstaller>=6.0.0",
+    "lrcup>=0.10.0",
+    "yt-dlp>=2025.11.12",
+    "ffmpeg-python>=0.2.0",
+]
+
+[project.optional-dependencies]
+gpu = [
+    "torch>=2.7.0",
+    "torchaudio>=2.7.0",
+]
+
+[project.scripts]
+karaoke-studio = "karaoke_app.main:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.uv]
+# UV-specific configuration
+dev-dependencies = []
+
+[tool.uv.sources]
+# For GPU support, use PyTorch CUDA index
+torch = [
+    { index = "pytorch-cu128", marker = "extra == 'gpu'" }
+]
+torchaudio = [
+    { index = "pytorch-cu128", marker = "extra == 'gpu'" }
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
