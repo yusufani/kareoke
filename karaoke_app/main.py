@@ -1,61 +1,42 @@
 """
-Karaoke Separation App - Main Entry Point
-A professional karaoke application with AI-powered vocal separation.
+Encore — Karaoke Studio. Entry point.
 """
-import sys
 import os
-from pathlib import Path
+import sys
 
-from PySide6.QtWidgets import QApplication
+os.environ.setdefault("QT_ENABLE_HIGHDPI_SCALING", "1")
+
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QApplication
 
-# Add the app directory to the path for imports
-APP_DIR = Path(__file__).parent
-sys.path.insert(0, str(APP_DIR))
-
-from ui.main_window import MainWindow
-from utils import setup_logging
+from .core.paths import DATA_ROOT, ensure_dirs
+from .ui import theme
+from .utils import setup_logging
 
 
-def setup_app_directories():
-    """Ensure required application directories exist."""
-    dirs = [
-        APP_DIR / "stems_cache",
-        APP_DIR / "logs",
-        APP_DIR / "settings"
-    ]
-    for directory in dirs:
-        directory.mkdir(parents=True, exist_ok=True)
-
-
-def main():
-    """Application entry point."""
-    # Enable high DPI scaling (Qt 6 does this automatically, but set policy for consistency)
+def main() -> int:
     QApplication.setHighDpiScaleFactorRoundingPolicy(
-        Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
-    )
-    # Note: AA_EnableHighDpiScaling and AA_UseHighDpiPixmaps are deprecated in Qt 6
-    # High DPI is enabled by default in Qt 6
+        Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
 
-    # Create application
     app = QApplication(sys.argv)
-    app.setApplicationName("Karaoke Separation Studio")
-    app.setOrganizationName("KaraokePro")
-    app.setApplicationVersion("1.0.0")
+    app.setApplicationName("Encore Karaoke Studio")
+    app.setOrganizationName("Encore")
+    app.setApplicationVersion("2.0.0")
 
-    # Setup directories
-    setup_app_directories()
+    ensure_dirs()
+    logger = setup_logging(DATA_ROOT)
+    logger.info("Encore starting from %s", DATA_ROOT)
 
-    # Setup logging
-    setup_logging(APP_DIR)
+    theme.resolve_fonts()
+    app.setFont(theme.ui_font(13))
 
-    # Create and show main window
+    # Imported after the QApplication exists so font resolution has settled.
+    from .ui.main_window import MainWindow
+
     window = MainWindow()
     window.show()
-
-    # Run application
-    sys.exit(app.exec())
+    return app.exec()
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

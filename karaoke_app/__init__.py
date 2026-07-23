@@ -1,7 +1,8 @@
 """
-Karaoke Separation Studio
-A professional karaoke application with AI-powered vocal separation.
+Encore — Karaoke Studio.
+
+A karaoke app that separates any song into vocals and instrumental, finds its
+lyrics online, and falls back to the original video when no lyrics exist.
 """
 
-__version__ = "1.0.0"
-__author__ = "Karaoke Pro"
+__version__ = "2.0.0"

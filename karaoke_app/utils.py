@@ -7,6 +7,14 @@ from pathlib import Path
 from datetime import datetime
 
 
+class WorkerCancelled(Exception):
+    """Raised inside a worker thread once the user has cancelled the operation.
+
+    Long-running operations raise this from their progress callback so the work
+    unwinds cleanly. Modules that wrap errors must let it propagate untouched.
+    """
+
+
 def setup_logging(app_dir: Path, log_level: int = logging.INFO):
     """
     Setup application logging.

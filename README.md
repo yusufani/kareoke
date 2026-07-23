@@ -1,348 +1,247 @@
-# Karaoke Separation Studio
+# Encore — Karaoke Studio
 
-A professional Windows desktop karaoke application with AI-powered vocal separation. Transform any song into a customizable karaoke experience with independent control over vocals and instrumental tracks.
+Türkçe özet aşağıda ↓
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue)
-![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
+Type a song name. Encore finds it on YouTube, looks its lyrics up in a free
+public database, splits the recording into vocals and instrumental with a neural
+network, and puts the words on screen in time with the music. If nobody has ever
+transcribed that song, it plays the original video instead — so every song works,
+one way or another.
 
-## Features
+Up to four microphones, each with its own effects. Everything slow happens in the
+background, so you can queue the next song while somebody is still singing.
 
-- **AI-Powered Stem Separation**: Automatically separates any audio/video file into vocals and instrumental using state-of-the-art Demucs v4
-- **Real-Time Mixing**: Independent volume faders for vocals and instrumental with instant feedback
-- **Video Playback**: Full video support with synchronized audio stems
-- **Smart Caching**: Stems are cached locally - separation happens only once per song
-- **GPU Acceleration**: Optional NVIDIA GPU support for 5-10x faster separation
-- **Professional UI**: Clean, intuitive interface built with Qt (PySide6)
-- **Per-Song Settings**: Remembers your mix preferences for each song
-- **Solo/Mute Controls**: Quickly isolate vocals or instrumental
-- **Transport Controls**: Play, pause, stop, and seek with precision
+![The stage](docs/screenshot-stage.png)
 
-## System Requirements
-
-### Minimum Requirements
-- **OS**: Windows 10 64-bit or Windows 11
-- **RAM**: 8 GB (16 GB recommended)
-- **Storage**: 2 GB for application + 100-200 MB per song for stems
-- **CPU**: Intel Core i5 or AMD Ryzen 5 (or equivalent)
-
-### Optional for GPU Acceleration
-- **GPU**: NVIDIA GPU with CUDA support (GTX 1060 or better)
-- **VRAM**: 4 GB minimum (6+ GB recommended)
-
-### Audio Formats Supported
-- **Audio**: MP3, WAV, FLAC
-- **Video**: MP4, MKV, AVI
-
-## Installation
-
-### 🚀 Quick Start (Recommended - UV)
-
-**NEW!** We now support [UV](https://github.com/astral-sh/uv) - the ultra-fast Python package manager (10-100x faster than pip)!
-
-```cmd
-setup-uv.bat
-```
-
-This will:
-- Auto-install UV if not present
-- Create virtual environment
-- Install all dependencies in ~45 seconds (vs 8 minutes with pip)
-
-See [UV_GUIDE.md](UV_GUIDE.md) for detailed UV documentation.
-
-### Option 1: Run from Source (Developers)
-
-1. **Clone or download this repository**
-   ```cmd
-   cd d:\projects\yusuf\kareoke
-   ```
-
-2. **Run the setup script**
-
-   **With UV (10-100x faster):**
-   ```cmd
-   setup-uv.bat
-   ```
-
-   **Traditional pip:**
-   ```cmd
-   setup.bat
-   ```
-
-   This will:
-   - Create a Python virtual environment
-   - Ask if you want GPU support
-   - Install all dependencies
-
-3. **Run the application**
-   ```cmd
-   run.bat
-   ```
-
-   or with UV:
-   ```cmd
-   run-uv.bat
-   ```
-
-### Option 2: Use Pre-built Executable (End Users)
-
-1. **Download the latest release**
-   - Download `KaraokeSeparationStudio-v1.0.0.zip` from the releases page
-
-2. **Extract and run**
-   - Extract the ZIP file to any location
-   - Navigate to `KaraokeSeparationStudio` folder
-   - Double-click `KaraokeSeparationStudio.exe`
-
-## Building from Source
-
-To create a standalone executable:
-
-```cmd
-build.bat
-```
-
-The executable will be created in `dist\KaraokeSeparationStudio\`
-
-## Usage Guide
-
-### First-Time Setup
-
-1. **Launch the application**
-   - Double-click `run.bat` or the `.exe` file
-
-2. **Select a song**
-   - Click the "SELECT SONG" button
-   - Choose an MP3, MP4, or other supported file
-
-3. **Wait for AI separation**
-   - First time: 1-5 minutes depending on your CPU/GPU
-   - Subsequent times: Instant (stems are cached)
-
-### Using the Karaoke Controls
-
-#### Mixer Panel (Right Side)
-
-- **Vocals Slider**: Control vocal volume (0-100%)
-- **Instrumental Slider**: Control backing track volume (0-100%)
-- **Mute Buttons**: Quickly mute either stem
-- **Solo Buttons**: Isolate one stem (mutes the other)
-- **Reset Mix**: Return both sliders to 100%
-
-#### Transport Controls (Bottom)
-
-- **Play**: Start playback from current position
-- **Pause**: Pause playback (keeps position)
-- **Stop**: Stop and return to beginning
-- **Seek Slider**: Jump to any position in the song
-
-### Common Use Cases
-
-#### Classic Karaoke (Sing Along)
-1. Set **Vocals** to **0%**
-2. Set **Instrumental** to **100%**
-3. Press **Play** and sing!
-
-#### Practice with Original Vocals
-1. Set **Vocals** to **30-50%**
-2. Set **Instrumental** to **100%**
-3. Sing along with subtle vocal guidance
-
-#### Instrumental Analysis
-1. Click **Instrumental Solo**
-2. Study the backing track
-
-#### Vocal Study
-1. Click **Vocals Solo**
-2. Analyze the vocal technique
-
-## Project Structure
-
-```
-kareoke/
-├── karaoke_app/
-│   ├── main.py                  # Application entry point
-│   ├── utils.py                 # Logging and utilities
-│   ├── ui/
-│   │   ├── __init__.py
-│   │   └── main_window.py       # Main UI window
-│   ├── audio/
-│   │   ├── __init__.py
-│   │   ├── separation.py        # Demucs integration
-│   │   └── playback.py          # Real-time stem mixing
-│   ├── resources/               # Icons and resources
-│   ├── stems_cache/             # Cached separated stems
-│   ├── logs/                    # Application logs
-│   └── settings/                # User settings
-├── requirements.txt             # CPU-only dependencies
-├── requirements-gpu.txt         # GPU-enabled dependencies
-├── karaoke_app.spec            # PyInstaller spec
-├── setup.bat                    # Setup script
-├── run.bat                      # Run script
-├── build.bat                    # Build script
-└── README.md                    # This file
-```
-
-## Technical Details
-
-### AI Separation Engine
-
-- **Model**: Demucs v4 (Hybrid Transformer)
-- **Architecture**: 4-source separation (drums, bass, other, vocals)
-- **Output**: 2 stems - vocals and instrumental (drums + bass + other)
-- **Quality**: 16-bit, 44.1/48 kHz stereo WAV
-
-### Audio Playback
-
-- **Engine**: PyAudio with custom real-time mixer
-- **Latency**: ~50ms (ultra-responsive volume changes)
-- **Synchronization**: Frame-accurate stem alignment
-- **Buffer Size**: 2048 samples (adjustable for lower latency)
-
-### Caching System
-
-- **Location**: `karaoke_app/stems_cache/`
-- **Key**: MD5 hash of original file (first 8 chars)
-- **Structure**: Separate folder per song with vocals and instrumental WAV files
-- **Invalidation**: Manual only (Tools → Re-generate Stems)
-
-### Video Playback
-
-- **Framework**: Qt Multimedia (QMediaPlayer)
-- **Synchronization**: Video synced to audio stems (not vice versa)
-- **Drift Correction**: Automatic resync if drift > 100ms
-- **Audio**: Muted (stems used instead for mixing control)
-
-## Performance Tips
-
-### Separation Speed
-
-| Hardware | Typical 3-Minute Song |
-|----------|----------------------|
-| CPU Only (i5) | 3-5 minutes |
-| CPU Only (i7/Ryzen 7) | 2-3 minutes |
-| GPU (GTX 1660) | 30-60 seconds |
-| GPU (RTX 3060+) | 15-30 seconds |
-
-### Optimization
-
-- **First run per song is slow** - separation is compute-intensive
-- **Subsequent runs are instant** - stems are cached
-- **Use GPU version** if you have NVIDIA GPU
-- **Close other apps** during separation for faster processing
-- **SSD recommended** for faster stem loading
-
-## Troubleshooting
-
-### Application won't start
-- Ensure Python 3.10 or 3.11 is installed
-- Run `setup.bat` again
-- Check `logs/` folder for error messages
-
-### Separation is very slow
-- Normal on CPU-only systems (3-5 min per song)
-- Install GPU version if you have NVIDIA GPU
-- Close other applications to free up RAM/CPU
-
-### Audio crackling or glitches
-- Increase buffer size in `audio/playback.py` (line 94)
-- Close other audio applications
-- Update audio drivers
-
-### Video not playing
-- Ensure file is a supported video format (MP4, MKV, AVI)
-- Try re-encoding with standard codecs
-- Check Qt Multimedia codec support
-
-### "CUDA out of memory" error
-- Your GPU doesn't have enough VRAM
-- Use CPU version instead: reinstall with `requirements.txt`
-
-### Stems sound wrong
-- Click Tools → Re-generate Stems
-- Try a different audio file (some files may have issues)
-- Report issues with specific files
-
-## Known Limitations
-
-1. **Separation quality varies by song**
-   - Modern pop/rock: Excellent
-   - Classical/orchestral: Good
-   - Heavy metal/electronic: Variable
-
-2. **First-run separation is slow**
-   - CPU: 2-5 minutes per song
-   - GPU: 15-60 seconds per song
-
-3. **Large disk space usage**
-   - Each song requires ~100-200 MB for stems
-   - Clear cache manually if needed
-
-4. **No real-time effects**
-   - No reverb, echo, or pitch shifting
-   - Focus is on high-quality separation and mixing
-
-## FAQ
-
-**Q: Can I use this commercially?**
-A: Check the license. For personal use, yes. For commercial use, consult licensing.
-
-**Q: Does this work offline?**
-A: Yes! All processing is 100% local. No internet required after installation.
-
-**Q: Can I export the separated stems?**
-A: Yes! Stems are saved as WAV files in `stems_cache/` - copy them anywhere.
-
-**Q: What's the difference between CPU and GPU versions?**
-A: GPU version is 5-10x faster for separation. Everything else is identical.
-
-**Q: Can I use this on Mac or Linux?**
-A: Currently Windows only. Mac/Linux ports are possible but not yet implemented.
-
-**Q: How accurate is the vocal separation?**
-A: Demucs v4 is state-of-the-art (as of 2024). Quality is very high for most modern music.
-
-## Dependencies
-
-### Core Libraries
-- **PySide6** 6.6+ - Qt for Python (GUI framework)
-- **PyTorch** 2.1+ - Deep learning framework
-- **Demucs** 4.0+ - AI separation model
-- **soundfile** 0.12+ - Audio I/O
-- **sounddevice** 0.4+ - Real-time audio playback
-- **NumPy** 1.24+ - Numerical computing
-
-### Optional
-- **CUDA Toolkit** 11.8 (for GPU version)
-
-## License
-
-MIT License - See LICENSE file for details.
-
-## Credits
-
-- **Demucs**: Developed by Facebook Research / Meta AI
-- **PySide6**: Qt for Python
-- **PyTorch**: Facebook AI Research
-
-## Support
-
-For issues, questions, or feature requests, please:
-1. Check the logs in `logs/` folder
-2. Review the troubleshooting section above
-3. Open an issue on GitHub (if applicable)
-
-## Version History
-
-### v1.0.0 (2024)
-- Initial release
-- Demucs v4 integration
-- Real-time stem mixing
-- Video playback support
-- Smart caching system
-- GPU acceleration support
+<sub>Every song, artist, lyric and thumbnail in these screenshots is invented — see <code>tools/screenshots.py</code>.</sub>
 
 ---
 
-**Built with ❤️ for karaoke enthusiasts and vocal learners**
+## What it does
+
+**Finds the words.** Lyrics come from [LRCLIB](https://lrclib.net) — free, no API
+key, no account — which serves *time-stamped* LRC lyrics for a very large share of
+popular music. A raw YouTube title almost never matches a database record on the
+first try, so Encore cleans the title, guesses which half is the artist, and then
+queries six different ways, scoring every candidate on title similarity and track
+length. On a real fifteen-song library this took the hit rate from 9/15 to 15/15.
+
+Three outcomes, three stages:
+
+| Result | Stage |
+|---|---|
+| Timed lyrics | Big gradient lyric that lights up **word by word**, next line underneath |
+| Untimed lyrics | Same stage, lines paced evenly across the song and labelled as an estimate |
+| Nothing found | The original video plays, muted, with your separated stems as the audio |
+
+**Highlights word by word.** LRCLIB timestamps a line, not a word, so Encore
+spreads the words across their line's own span weighted by syllable count — a
+three-syllable word gets three times the time of a one-syllable one — and sweeps
+the highlight through them. Unsung words stay readable ahead of the beam.
+
+**Splits the song.** Demucs `htdemucs` separates vocals from everything else, using
+CUDA or Apple Metal when available and falling back to CPU. Stems are cached, so a
+song is only ever separated once.
+
+**Mixes live.** Vocals and instrumental on their own faders (drop the vocals to
+sing, raise them to learn), one fader per microphone, and a master. Per-mic
+effects: reverb, echo, autotune, bass and treble, with six presets. **Every
+microphone starts dry** — effects are something you switch on, never a surprise.
+Only *Arena*, *Echo River* and *Cathedral* produce an audible repeat; *Studio* is
+a short room and nothing else.
+
+**Stays out of the way.** Searching, downloading and separating all run on worker
+threads. The audio engine runs in its own callback and is *polled* by the
+interface rather than signalling it, so a busy window can never interrupt the
+music. Measured worst case — four microphones with the heaviest presets — is
+**7.8 % of one core**.
+
+**Transport for practising.** Tempo without changing key, key without changing
+tempo, A/B loop over a hard phrase, and a record button that saves takes as WAV
+and ducks the music while you sing.
+
+### Finding songs, without stopping the one that is playing
+
+![YouTube search](docs/screenshot-search.png)
+
+Search results show whichever stage each song is at — idle, downloading,
+separating, or ready with the kind of lyrics it found.
+
+### The library
+
+![Library](docs/screenshot-library.png)
+
+Everything already prepared, with what it will do on stage: *synced lyrics*,
+*lyrics (est. timing)*, or *video stage*.
+
+---
+
+## Getting started
+
+```bash
+./setup.sh    # once — installs Python 3.11 and the dependencies with uv
+./run.sh      # every time
+```
+
+Windows: `setup.bat`, then `run.bat`.
+
+You also need **ffmpeg** on your PATH (`brew install ffmpeg`, or
+`sudo apt install ffmpeg`). Downloads arrive in containers libsndfile cannot read,
+and ffmpeg is what turns them into audio.
+
+### First run
+
+1. Click **Add songs**, type a song name, press Enter.
+2. Hit **Download** on a result. Lyrics, download and separation run behind you —
+   the progress badge tells you which stage it is on.
+3. When it says *synced lyrics*, press **▶ Play**.
+
+While that song plays you can open the drawer again and queue up the next one.
+Nothing stops.
+
+### Keyboard
+
+| Key | Action |
+|---|---|
+| `Space` | Play / pause |
+| `←` `→` | Back / forward five seconds |
+| `Ctrl+F` | Search |
+| `Ctrl+L` | Library |
+| `Ctrl+R` | Start / stop recording |
+| `Ctrl+→` | Skip to the next queued song |
+| `Esc` | Close the drawer |
+
+### Microphones
+
+**Each mic picks its own device from the mixer** — click the channel's name
+(*Mic 1 ▾*) and choose. The name of the chosen device sits under the fader in
+green when it opened, with a live input meter above it, so "is it hearing me?"
+is answered before you start a song. A device already used by another channel is
+greyed out.
+
+**⚙ → Audio settings** covers the output device, how many microphones you want,
+and two useful switches:
+
+- **Smart music ducking** — drops the track 6 dB while you record, so the recording
+  is a vocal over a backing track rather than a fight.
+- **Noise gate** — silences a mic between phrases. On by default; turn it off if
+  you are singing very quietly and it clips your first word.
+
+---
+
+## How it is put together
+
+```
+karaoke_app/
+├── main.py                 entry point
+├── audio/
+│   ├── engine.py           the real-time mixer: one output stream, one input
+│   │                       stream per mic, jitter buffers to reconcile clocks
+│   ├── timescale.py        WSOLA time-stretch + resampler — tempo and key,
+│   │                       bypassed entirely at 1.00x / key 0
+│   ├── fx.py               per-mic chain: gate, high-pass, compressor,
+│   │                       autotune, EQ, echo, Freeverb-style reverb
+│   ├── lyrics.py           LRCLIB search strategy, LRC parsing, scoring
+│   ├── youtube.py          flat search and format-aware download (yt-dlp)
+│   └── separation.py       Demucs, with length and silence guards
+├── core/
+│   ├── jobs.py             the thread pool: search, prepare, lyrics, artwork
+│   ├── library.py          the song database (JSON)
+│   ├── config.py           persisted settings
+│   └── migrate.py          adopts songs prepared by the previous version
+└── ui/
+    ├── stage.py            lyric, estimated-lyric and video faces
+    ├── mixer.py            faders, FX rack, queue
+    ├── transport.py        play, scrub, tempo, key, A/B, record, takes
+    ├── drawer.py           YouTube search and library
+    └── theme.py            design tokens; bundled Space Grotesk + JetBrains Mono
+```
+
+Two rules hold the design together:
+
+1. **The audio callback never blocks and never calls Qt.** It does not log, take
+   the engine lock, or allocate unpredictably. The window polls the playhead on a
+   30 fps timer.
+2. **Nothing slow runs on the GUI thread.** Every download, separation, search and
+   lyrics lookup is a `QRunnable`. Separation holds a semaphore so only one runs at
+   a time, and torch is told to leave two cores free for the audio thread.
+
+### Where files go
+
+Everything lives under `karaoke_app/` (override with `ENCORE_HOME`):
+
+| Folder | Contents |
+|---|---|
+| `downloads/` | media pulled from YouTube |
+| `stems_cache/` | separated vocals and instrumental |
+| `lyrics_cache/` | resolved lyrics, one JSON per song |
+| `recordings/` | your takes |
+| `data/` | library, settings, artwork cache |
+| `logs/` | one log per run |
+
+You can drop a `song.lrc` next to any imported file and Encore will use it instead
+of searching.
+
+---
+
+## If the microphone echoes
+
+Effects are off by default, so an echo you did not ask for is almost always the
+room rather than the software:
+
+- **You are listening on speakers.** The speaker feeds the mic, which feeds the
+  speaker. It sounds like enormous reverb and gets worse as you turn the mic up.
+  Headphones fix it outright; failing that, drop **Mic monitor level** in the
+  settings and point the mic away from the speakers.
+- **The mic is far from your mouth** — a webcam or laptop microphone picks up the
+  room, and the room *is* the echo. A handheld or headset mic is a bigger
+  improvement than any setting in this app.
+- **A preset is on.** Open **FX** on that channel and press **Dry**.
+
+## Limits worth knowing
+
+- **20 minutes per track.** Demucs holds four full-length stems in memory at once;
+  a two-hour DJ mix needs about 20 GB and, on Metal, comes back as silence rather
+  than an error. Encore refuses those up front and checks the output for silence
+  afterwards as a backstop.
+- **Monitoring latency is your device's, not ours.** The block size is 256 frames
+  (≈5.8 ms); the rest is the sound card. A USB interface will beat built-in
+  speakers by a wide margin.
+- **Two of every hundred songs are filed backwards in LRCLIB.** The lyrics are
+  right; the artist and title may be swapped in the library list.
+
+---
+
+## Türkçe
+
+Şarkı adını yazın. Encore onu YouTube'da bulur, sözlerini ücretsiz bir veritabanında
+arar, yapay zekâ ile vokal ve enstrümantal olarak ayırır ve sözleri müzikle **eş
+zamanlı** ekrana getirir. Sözü hiç yazılmamış bir şarkıysa orijinal videoyu oynatır
+— yani her şarkı bir şekilde çalışır.
+
+- **Kurulum:** `./setup.sh` (bir kez), sonra `./run.sh`. Ayrıca `ffmpeg` gerekir.
+- **Kullanım:** *Add songs* → şarkı adı → *Download*. İndirme ve ayrıştırma arka
+  planda çalışır; bu sırada müzik durmaz, yeni şarkı sıraya eklenebilir.
+- **4 mikrofona kadar**, her birine ayrı reverb / echo / autotune / bass / treble.
+  Mikrofonlar **temiz (Dry) başlar**; efekt açmadıkça hiçbir yankı eklenmez. Mikrofon
+  kendiliğinden yankı yapıyorsa neredeyse her zaman sebep odadır: hoparlörden
+  dinliyorsan ses mikrofona geri girer. Kulaklık kullan ya da ayarlardan
+  **Mic monitor level**'i düşür.
+- **Tempo ve ton ayrı ayrı** değiştirilebilir — şarkıyı yavaşlatın ya da kendi
+  sesinize göre tonunu indirin, diğeri bozulmaz.
+- **A/B** ile zor bir bölümü döngüye alın, **Record** ile kaydedin (kayıt sırasında
+  müzik otomatik 6 dB kısılır).
+
+Sözler [LRCLIB](https://lrclib.net) üzerinden gelir: ücretsiz, API anahtarı
+gerektirmez ve zaman damgalı LRC formatında.
+
+---
+
+## Licence
+
+MIT — see `LICENSE`.
+
+Bundled typefaces (`karaoke_app/ui/fonts/`) are Space Grotesk and JetBrains Mono,
+both under the SIL Open Font Licence; their licence texts ship alongside them.
+Lyrics come from LRCLIB, a community database. Please respect the copyright of the
+music you download.

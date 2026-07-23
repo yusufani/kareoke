@@ -1,28 +1,26 @@
-# CPU-only version
-# Compatible with Python 3.9, 3.10, 3.11, 3.12, 3.13
+# Encore — Karaoke Studio
+# Works on Python 3.10 – 3.13. CPU by default; CUDA/Metal are used automatically
+# when available (see requirements-gpu.txt for an explicit CUDA build).
 
-# Core GUI Framework
+# GUI — the meta package, because the stage needs QtMultimedia from Addons
 PySide6>=6.8.0
-PySide6-Essentials>=6.8.0
 
-# Audio Processing (CPU-only)
+# Stem separation
 torch>=2.7.0
 torchaudio>=2.7.0
 demucs>=4.0.0
 
-# Audio I/O and Playback
+# Real-time audio I/O and file handling
 soundfile>=0.12.1
 sounddevice>=0.4.6
-
-# YouTube download support
-yt-dlp>=2024.12.0
-
-# FFmpeg for video-to-audio extraction
-ffmpeg-python>=0.2.0
-
-# Utilities
 numpy>=1.24.0,<3.0.0
 scipy>=1.11.0
 
-# For packaging
+# YouTube search and download
+yt-dlp>=2025.11.12
+
+# Decoding downloads into something soundfile can read
+ffmpeg-python>=0.2.0
+
+# Packaging
 pyinstaller>=6.0.0

@@ -1,113 +1,61 @@
-# Quick Start Guide
+# Quick start
 
-Get up and running with Karaoke Separation Studio in 5 minutes!
+## 1. Install
 
-## For End Users (Pre-built Executable)
-
-### 1. Download & Extract
-- Download `KaraokeSeparationStudio-v1.0.0.zip`
-- Extract to any folder
-- No installation required!
-
-### 2. Launch
-- Double-click `KaraokeSeparationStudio.exe`
-- Wait a few seconds for the app to start
-
-### 3. Load Your First Song
-- Click **"📁 SELECT SONG"**
-- Choose an MP3 or MP4 file
-- Wait 1-5 minutes for AI separation (first time only)
-
-### 4. Start Singing!
-
-**Classic Karaoke Mode**:
-1. Drag **Vocals** slider all the way down (0%)
-2. Keep **Instrumental** at 100%
-3. Press **▶ Play**
-4. Sing along! 🎤
-
-**Practice Mode** (with faint vocals):
-1. Set **Vocals** to 20-30%
-2. Keep **Instrumental** at 100%
-3. Press **▶ Play**
-4. Learn the melody!
-
-## For Developers (Run from Source)
-
-### 1. Install Python
-```cmd
-# Download Python 3.11 from python.org
-python --version  # Verify it's installed
+```bash
+./setup.sh
 ```
 
-### 2. Setup
-```cmd
-cd d:\projects\yusuf\kareoke
-setup.bat
-```
-Choose **GPU** if you have NVIDIA graphics, otherwise choose **CPU**.
+macOS/Linux. On Windows run `setup.bat` instead.
 
-### 3. Run
-```cmd
-run.bat
+You also need ffmpeg on your PATH:
+
+```bash
+brew install ffmpeg
 ```
 
-### 4. Use the App
-Same as above - click SELECT SONG and start karaoke!
+(Debian/Ubuntu: `sudo apt install ffmpeg`.)
 
-## Tips for Best Experience
+## 2. Run
 
-### For Better Separation Quality
-- Use high-quality source files (320kbps MP3 or lossless)
-- Modern pop/rock songs work best
-- Avoid heavily compressed or low-quality files
+```bash
+./run.sh
+```
 
-### For Faster Performance
-- **GPU version**: 10x faster separation (if you have NVIDIA GPU)
-- **SSD**: Faster stem loading
-- **Close other apps**: More RAM for processing
+## 3. Sing
 
-### Common Settings
+1. **Add songs** → type a song name → Enter.
+2. **↓ Download** on the result you want.
+3. Watch the badge: *Finding lyrics* → *Downloading* → *Separating stems* → **✓ synced lyrics**.
+4. **▶ Play**. The lyric lights up word by word as it is sung.
 
-| Use Case | Vocals | Instrumental |
-|----------|--------|--------------|
-| Pure Karaoke | 0% | 100% |
-| Learning | 30% | 100% |
-| Duet Practice | 50% | 100% |
-| Instrumental Study | 0% (muted) | 100% (solo) |
-| Vocal Study | 100% (solo) | 0% (muted) |
+The first song takes longer than the rest — the separation model loads once, in
+the background, while you are still searching.
 
-## Keyboard Shortcuts
+## While a song is playing
 
-(Note: Currently not implemented - use mouse/buttons)
+- **Click a mic channel's name** (*Mic 1 ▾*) in the mixer to choose its device.
+  The green name and the meter under the fader tell you it is hearing you.
+  **⚙ → Audio settings** sets how many microphones you want (up to 4).
+- Pull the **Vocals** fader down to sing it yourself; push it up to learn the tune.
+- **FX** on a mic channel — reverb, echo, autotune, bass, treble.
+- **KEY −/+** moves the song into your range without speeding it up.
+- **1.00x −/+** slows it down without dropping the key.
+- **A** then **B** loops the section between them.
+- **Record** captures your take (the music ducks 6 dB automatically); **Takes**
+  lists them and exports to WAV.
 
-## Troubleshooting
+You can open **Add songs** at any point and queue the next one. Downloading and
+separating happen in the background — the music does not stop.
 
-### App won't start
-- Right-click → Properties → Unblock (if downloaded)
-- Run as Administrator (if needed)
-- Check Windows Defender didn't quarantine it
+## If a song has no lyrics anywhere
 
-### Separation takes forever
-- Normal for CPU-only: 3-5 minutes per song
-- Use GPU version for faster processing
-- Subsequent loads are instant (cached)
+Encore downloads the video instead and plays it, muted, behind your own separated
+audio. You still get the mixer, the mics and every effect. The badge in the corner
+of the stage tells you which mode you are in.
 
-### No sound
-- Check Windows volume mixer
-- Ensure correct audio device is selected
-- Try restarting the app
+## Where things are kept
 
-### Video not showing
-- Only MP4, MKV, AVI are supported
-- Audio-only files show a placeholder (normal)
-
-## Next Steps
-
-- **Read full manual**: See [README.md](README.md)
-- **Customize settings**: Experiment with sliders
-- **Share your experience**: Rate and review!
-
----
-
-**That's it! Enjoy your karaoke experience!** 🎵🎤
+Everything is under `karaoke_app/` — `downloads/`, `stems_cache/`, `recordings/`,
+`lyrics_cache/`. Delete a folder to reclaim the space; anything missing is simply
+prepared again next time.

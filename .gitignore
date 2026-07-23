@@ -5,22 +5,16 @@ __pycache__/
 *.so
 .Python
 build/
-develop-eggs/
 dist/
-downloads/
+develop-eggs/
 eggs/
 .eggs/
-lib/
-lib64/
-parts/
 sdist/
-var/
 wheels/
 *.egg-info/
-.installed.cfg
 *.egg
 
-# Virtual Environment
+# Virtual environment
 .venv/
 venv/
 ENV/
@@ -29,34 +23,31 @@ env/
 # PyInstaller
 *.spec
 *.manifest
-*.spec
 
-# Application specific
+# Everything Encore writes at runtime
+karaoke_app/downloads/
 karaoke_app/stems_cache/
+karaoke_app/lyrics_cache/
+karaoke_app/recordings/
+karaoke_app/data/
 karaoke_app/logs/
 karaoke_app/settings/
 
-# IDE
+# IDE / OS
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-
-# OS
 .DS_Store
 Thumbs.db
 desktop.ini
 
-# Temporary files
+# Temporary
 *.tmp
 *.bak
 *.log
 .claude/settings.local.json
 
-
-nul
-karaoke_app/data/
+# Left over from the previous version (video re-encoding); safe to delete
 karaoke_app/converted/
-karaoke_app/data/download_history.json
-karaoke_app/data/download_history.json

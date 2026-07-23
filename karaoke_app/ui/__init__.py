@@ -1,1 +1,1 @@
-"""UI components for Karaoke Separation Studio."""
+"""Presentation layer: theme, widgets, panels and the main window."""

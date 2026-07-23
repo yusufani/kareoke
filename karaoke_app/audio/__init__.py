@@ -1,20 +1,6 @@
-"""Audio processing components for Karaoke Separation Studio."""
+"""Audio subsystem.
 
-from .separation import SeparationEngine
-from .playback import StemPlayer
-from .youtube_downloader import YouTubeDownloader, DownloadHistory
-from .device_manager import AudioDeviceManager
-from .voice_effects import VoiceEffects
-from .recording_manager import RecordingManager
-from .video_converter import VideoConverter
-
-__all__ = [
-    'SeparationEngine',
-    'StemPlayer',
-    'YouTubeDownloader',
-    'DownloadHistory',
-    'AudioDeviceManager',
-    'VoiceEffects',
-    'RecordingManager',
-    'VideoConverter'
-]
+Deliberately empty of imports: pulling in ``separation`` drags torch and demucs
+into the process, which costs seconds of start-up. Import the submodule you
+need, and let the job manager load the heavy ones on a worker thread.
+"""
