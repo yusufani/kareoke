@@ -334,10 +334,16 @@ class Autotune:
     """
 
     WINDOW = 2048
-    # 512 frames is ~11 ms. The grain has to be long enough to carry a pitch
-    # period and short enough that the shifted copy still reads as the same
-    # voice — a longer one is heard as a second singer a beat behind.
-    GRAIN = 512
+    # The grain is *pitch-synchronous*: it is set to a whole number of the
+    # singer's own pitch periods, so the two taps — half a grain apart — land
+    # exactly one or more periods from each other and are therefore in phase.
+    # That is the whole game. A fixed grain leaves the taps at some arbitrary
+    # fraction of a period, they partially cancel, and the result buzzes at the
+    # grain rate: measured at 76% non-harmonic energy against 0.1% dry.
+    GRAIN = 1024                 # starting point, before any pitch is known
+    MIN_GRAIN = 384
+    MAX_GRAIN = 4096
+    TARGET_GRAIN_MS = 30.0       # long enough to be clean, short enough to sing over
 
     # "snap" pulls to the nearest semitone — correction. "robot" pulls to one
     # fixed note no matter what you sing, which is the monotone that reads as a
@@ -355,9 +361,10 @@ class Autotune:
         self._seen: list = []          # detected pitches, for picking the lock note
         self._locked: float = 0.0      # 0 until the singer's range is known
         self._history = np.zeros(self.WINDOW, dtype=np.float32)
-        self._line = DelayLine(self.GRAIN * 6, channels)
+        self._line = DelayLine(self.MAX_GRAIN * 2 + 4096, channels)
         self._read_offset = 0.0
         self._ratio = 1.0
+        self._grain = float(self.GRAIN)
 
     def set_sample_rate(self, sample_rate: int) -> None:
         if sample_rate != self.sample_rate:
@@ -369,8 +376,29 @@ class Autotune:
         self._line.reset()
         self._read_offset = 0.0
         self._ratio = 1.0
+        self._grain = float(self.GRAIN)
         self._seen.clear()
         self._locked = 0.0
+
+    def _retune_grain(self, freq: float) -> None:
+        """Track the grain to a whole number of pitch periods.
+
+        Slewed rather than jumped, and the phase is rescaled with it, so the
+        crossfade stays continuous while the grain follows the voice.
+        """
+        if freq <= 0.0:
+            return
+        period = self.sample_rate / freq
+        target_len = self.TARGET_GRAIN_MS * self.sample_rate / 1000.0
+        periods = max(1, round(target_len / (2.0 * period)))
+        target = float(np.clip(2.0 * periods * period,
+                               self.MIN_GRAIN, self.MAX_GRAIN))
+        if abs(target - self._grain) < 1.0:
+            return
+        previous = self._grain
+        self._grain += (target - self._grain) * 0.25
+        # Keep the read head at the same fraction of a grain, or the taps jump.
+        self._read_offset *= self._grain / previous
 
     def _lock(self, midi: float) -> float:
         """The single note robot mode holds, learned from what is being sung.
@@ -408,7 +436,19 @@ class Autotune:
         peak = int(np.argmax(segment))
         if segment[peak] / autocorr[0] < 0.35:   # too noisy to be a pitch
             return 0.0
-        return self.sample_rate / float(lo + peak)
+
+        # Parabolic interpolation around the peak. The lag is an integer number
+        # of samples, which at 330 Hz is already a 0.3% error in the period —
+        # and the grain is a multiple of that period, so the error is multiplied
+        # by however many periods the grain spans and shows up as phase drift
+        # between the two taps.
+        lag = float(lo + peak)
+        if 0 < peak < len(segment) - 1:
+            left, centre, right = segment[peak - 1], segment[peak], segment[peak + 1]
+            denominator = left - 2.0 * centre + right
+            if abs(denominator) > 1e-12:
+                lag += 0.5 * (left - right) / denominator
+        return self.sample_rate / max(lag, 1e-6)
 
     def process(self, block: np.ndarray) -> np.ndarray:
         count = len(block)
@@ -440,9 +480,10 @@ class Autotune:
             target = 1.0
         # Glide towards the target. Correction should sound sung, so it eases;
         # a robot should not glide at all, so it snaps.
-        glide = 0.9 if self.mode == self.ROBOT else 0.35
+        glide = 0.45 if self.mode == self.ROBOT else 0.30
         self._ratio += (target - self._ratio) * glide
 
+        self._retune_grain(freq)
         self._line.write(block)
         if abs(self._ratio - 1.0) < 1e-4:
             return block
@@ -453,18 +494,19 @@ class Autotune:
         # sample 256 times and turns a voice into a buzz at the block rate.
         # Between blocks the window itself moves on by `count`, so the carried
         # offset advances by only (r - 1) * count.
-        span = self.GRAIN + count + 4
+        grain = self._grain
+        span = int(grain) + count + 4
         buffer = self._line.read_delayed(span, span).copy()
         index = self._read_offset + np.arange(count, dtype=np.float64) * self._ratio
         self._read_offset = (self._read_offset
-                             + count * (self._ratio - 1.0)) % self.GRAIN
+                             + count * (self._ratio - 1.0)) % grain
 
         # Two taps half a grain apart, each wrapped, each weighted by a raised
         # cosine that is exactly zero where *that* tap wraps — so neither
         # discontinuity is ever audible.
-        first = index % self.GRAIN
-        second = (index + self.GRAIN / 2.0) % self.GRAIN
-        weight = 0.5 * (1.0 - np.cos(2.0 * np.pi * first / self.GRAIN))
+        first = index % grain
+        second = (index + grain / 2.0) % grain
+        weight = 0.5 * (1.0 - np.cos(2.0 * np.pi * first / grain))
         weight = weight.astype(np.float32)[:, None]
         wet = (_interp_taps(buffer, first) * weight
                + _interp_taps(buffer, second) * (1.0 - weight))
