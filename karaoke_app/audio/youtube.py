@@ -13,7 +13,7 @@ import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, List, Optional
+from typing import Callable, Dict, List, Optional
 from urllib.parse import urlparse, parse_qs
 
 import yt_dlp
@@ -193,12 +193,18 @@ class Downloader:
     # text. Each selector falls through to a looser one; YouTube regularly
     # serves a video with no m4a at all.
     AUDIO_FORMAT = "bestaudio[ext=m4a]/bestaudio/best[height<=480]/best"
-    # Capped video — the fallback stage renders at most 1080p, and a 4K pull
-    # would waste minutes of the singer's time for no visible gain.
+    # Capped video, and h264 (avc1) forced ahead of everything else. YouTube now
+    # serves AV1 by default, and Qt's bundled ffmpeg cannot decode AV1 on many
+    # machines — it floods "hardware accelerated AV1 decoding" errors and the
+    # stage shows nothing. avc1 plays everywhere. The later fall-throughs are a
+    # safety net for the rare upload with no h264 at all; those may still fail to
+    # play, which the stage now handles by showing a still card instead.
     VIDEO_FORMAT = (
+        "bestvideo[height<=1080][vcodec^=avc1]+bestaudio[ext=m4a]/"
+        "bestvideo[height<=1080][vcodec^=avc1]+bestaudio/"
+        "best[height<=1080][vcodec^=avc1]/"
         "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/"
-        "bestvideo[height<=1080]+bestaudio/"
-        "best[height<=1080][ext=mp4]/best[height<=1080]/best"
+        "best[height<=720]/best"
     )
 
     def __init__(self, download_dir: Path):
@@ -206,7 +212,12 @@ class Downloader:
         self.download_dir.mkdir(parents=True, exist_ok=True)
 
     def existing(self, video_id: str, want_video: bool) -> Optional[Path]:
-        """Return a previously downloaded file for this video, if usable."""
+        """Return a previously downloaded file for this video, if usable.
+
+        For video, a file the player cannot decode (AV1) counts as *not* there,
+        so a re-fetch replaces it with an h264 copy rather than handing back the
+        broken one from cache.
+        """
         audio_exts = {".m4a", ".webm", ".opus", ".mp3", ".wav"}
         video_exts = {".mp4", ".mkv", ".webm"}
         best: Optional[Path] = None
@@ -215,7 +226,9 @@ class Downloader:
                 continue
             suffix = path.suffix.lower()
             if want_video and suffix in video_exts:
-                return path
+                if _is_playable_video(path):
+                    return path
+                continue
             if not want_video and suffix in audio_exts | video_exts:
                 best = best or path
         return best
@@ -310,3 +323,41 @@ class Downloader:
 
 class _Cancelled(WorkerCancelled):
     """Raised inside a yt-dlp hook to unwind a cancelled download."""
+
+
+# Codecs QtMultimedia decodes reliably across platforms. AV1 is deliberately
+# absent: the bundled ffmpeg cannot hardware-decode it on many machines.
+_PLAYABLE_VCODECS = ("h264", "avc1", "hevc", "hvc1", "mpeg4", "vp9", "vp09")
+
+
+_playable_cache: Dict[str, bool] = {}
+
+
+def is_playable_video(path: Path) -> bool:
+    """True if the file's video codec is one the stage's player can show.
+
+    Uses ffprobe, which is already a dependency. If ffprobe is missing or the
+    probe fails, assume playable rather than throwing the file away. Results are
+    cached per path so the GUI thread never probes the same file twice.
+    """
+    import subprocess
+    key = str(path)
+    cached = _playable_cache.get(key)
+    if cached is not None:
+        return cached
+    try:
+        out = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "v:0",
+             "-show_entries", "stream=codec_name", "-of", "csv=p=0", key],
+            capture_output=True, text=True, timeout=10,
+        )
+        codec = (out.stdout or "").strip().lower()
+        result = (not codec) or any(codec.startswith(g) for g in _PLAYABLE_VCODECS)
+    except (FileNotFoundError, subprocess.SubprocessError):
+        result = True
+    _playable_cache[key] = result
+    return result
+
+
+# Back-compat alias for the internal call sites.
+_is_playable_video = is_playable_video

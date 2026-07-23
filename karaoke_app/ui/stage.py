@@ -358,6 +358,7 @@ class VideoFace(QWidget):
         layout.addWidget(self.title)
         layout.addWidget(self.subtitle)
 
+        self._failed = False
         try:
             from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
             from PySide6.QtMultimediaWidgets import QVideoWidget
@@ -372,9 +373,26 @@ class VideoFace(QWidget):
             self.player.setAudioOutput(self._audio)
             self.player.setVideoOutput(self.video)
             self.player.setLoops(1)
+            self.player.errorOccurred.connect(self._on_error)
             self.available = True
         except Exception as exc:
             logger.warning("Video playback unavailable (%s); using a still stage", exc)
+
+    def _on_error(self, error, message: str = "") -> None:
+        """A codec the platform cannot decode — usually AV1. Stop trying and
+        show the still card instead of hammering the decoder every frame."""
+        from PySide6.QtMultimedia import QMediaPlayer
+        if error == QMediaPlayer.Error.NoError:
+            return
+        logger.warning("Video decode failed (%s); showing a still card", message)
+        self._failed = True
+        if self.player is not None:
+            self.player.stop()
+        if self.video is not None:
+            self.video.setVisible(False)
+        self.subtitle.setText("This video's format can't be played here — "
+                              "the audio is still separated and mixed")
+        self._placeholder.setVisible(True)
 
     def resizeEvent(self, event) -> None:
         if self.video is not None:
@@ -382,6 +400,7 @@ class VideoFace(QWidget):
         self._placeholder.setGeometry(self.rect())
 
     def set_song(self, entry: Optional[SongEntry], note: str = "") -> None:
+        self._failed = False
         self.title.setText(entry.title if entry else "")
         self.subtitle.setText(note or (f"{entry.display_artist} · original video"
                                        if entry else ""))
@@ -396,6 +415,25 @@ class VideoFace(QWidget):
                 self.video.setVisible(False)
             self._placeholder.setVisible(True)
             return
+        # Check the codec before handing the file to the player. AV1 fails at
+        # the decode level without ever emitting an error signal — the player
+        # thinks the media loaded fine and just spews "no pixel format" every
+        # frame — so waiting for errorOccurred does not work. This is the only
+        # reliable place to stop it.
+        from ..audio.youtube import is_playable_video
+        if not is_playable_video(path):
+            logger.info("Video %s uses a codec the player can't show; still card",
+                        path.name)
+            self._failed = True
+            self.player.stop()
+            self.player.setSource(QUrl())
+            if self.video is not None:
+                self.video.setVisible(False)
+            self.subtitle.setText("This video's format can't be played here — "
+                                  "the audio is still separated and mixed")
+            self._placeholder.setVisible(True)
+            return
+
         self._placeholder.setVisible(False)
         if self.video is not None:
             self.video.setVisible(True)
@@ -403,7 +441,7 @@ class VideoFace(QWidget):
 
     def sync(self, position: float, playing: bool, speed: float) -> None:
         """Keep the picture on top of the audio without fighting it."""
-        if self.player is None or self.player.source().isEmpty():
+        if self.player is None or self._failed or self.player.source().isEmpty():
             return
         from PySide6.QtMultimedia import QMediaPlayer
 
