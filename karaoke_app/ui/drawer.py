@@ -10,14 +10,16 @@ from typing import Dict, List, Optional
 
 from PySide6.QtCore import (QEasingCurve, QPoint, QPropertyAnimation, Qt,
                             QTimer, Signal)
-from PySide6.QtGui import QFont, QPixmap
-from PySide6.QtWidgets import (QFileDialog, QHBoxLayout, QLabel, QLineEdit,
-                               QScrollArea, QSizePolicy, QVBoxLayout, QWidget)
+from PySide6.QtGui import QFont, QPainter, QPen, QPixmap
+from PySide6.QtWidgets import (QFileDialog, QFrame, QHBoxLayout, QLabel,
+                               QLineEdit, QScrollArea, QSizePolicy, QVBoxLayout,
+                               QWidget)
 
 from ..audio.youtube import SearchResult
 from ..core.jobs import STAGE_DOWNLOAD, STAGE_LYRICS, STAGE_SEPARATE
 from ..core.library import (LYRICS_NONE, LYRICS_PLAIN, LYRICS_SYNCED, SongEntry)
 from . import theme
+from .theme import qc
 from .widgets import ElidedLabel, ProgressStrip, Thumbnail, button, label
 
 logger = logging.getLogger(__name__)
@@ -190,6 +192,22 @@ class LibraryRow(QWidget):
         layout.addWidget(remove)
 
 
+class _Panel(QWidget):
+    """The drawer's sheet.
+
+    Paints its own background rather than relying on a stylesheet rule: the
+    window's global sheet sets every QWidget transparent, and which rule wins
+    for a plain QWidget depends on details that are not worth depending on. A
+    drawer you can see the stage through is not a drawer.
+    """
+
+    def paintEvent(self, event) -> None:
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), qc("rgba(12,14,21,0.985)"))
+        painter.setPen(QPen(qc(theme.BORDER_STRONG), 1))
+        painter.drawLine(self.width() - 1, 0, self.width() - 1, self.height())
+
+
 class SongDrawer(QWidget):
     """The whole overlay: tabs, search field, result list, library list."""
 
@@ -220,12 +238,8 @@ class SongDrawer(QWidget):
         self.scrim.setStyleSheet("background: rgba(4,5,8,0.35);")
         self.scrim.mousePressEvent = lambda _: self.closed.emit()
 
-        self.panel = QWidget(self)
+        self.panel = _Panel(self)
         self.panel.setFixedWidth(self.PANEL_WIDTH)
-        self.panel.setStyleSheet(
-            "QWidget#DrawerPanel { background: rgba(12,14,21,0.98);"
-            f" border-right: 1px solid {theme.BORDER_STRONG}; }}")
-        self.panel.setObjectName("DrawerPanel")
         self.panel.raise_()
 
         self._slide = QPropertyAnimation(self.panel, b"pos", self)
@@ -447,11 +461,19 @@ class SongDrawer(QWidget):
 
 
 def _scroll_column():
-    """A vertical scroll area whose body layout ends in a stretch."""
+    """A vertical scroll area whose body layout ends in a stretch.
+
+    The viewport has to be told not to fill itself: by default it paints the
+    window colour, which lands on top of the drawer panel and quietly undoes the
+    panel's own background.
+    """
     area = QScrollArea()
     area.setWidgetResizable(True)
+    area.setFrameShape(QFrame.Shape.NoFrame)
     area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+    area.viewport().setAutoFillBackground(False)
     body = QWidget()
+    body.setAutoFillBackground(False)
     layout = QVBoxLayout(body)
     layout.setContentsMargins(14, 2, 14, 14)
     layout.setSpacing(8)

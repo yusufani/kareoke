@@ -126,7 +126,11 @@ class MainWindow(QMainWindow):
         self.setStyleSheet(theme.stylesheet() + BUTTON_QSS)
 
         root = QWidget()
-        root.setStyleSheet(f"background: {theme.BG};")
+        # Targeted by id, not a bare property. A selector-less rule is inherited
+        # by every descendant, which paints an opaque background over anything
+        # layered on top — the drawer panel most visibly.
+        root.setObjectName("Root")
+        root.setStyleSheet(f"#Root {{ background: {theme.BG}; }}")
         self.setCentralWidget(root)
         column = QVBoxLayout(root)
         column.setContentsMargins(0, 0, 0, 0)
@@ -176,11 +180,23 @@ class MainWindow(QMainWindow):
             "background: qlineargradient(x1:0,y1:0,x2:1,y2:1,"
             f"stop:0 {theme.PINK}, stop:1 {theme.INDIGO});"
             "border-radius: 6px; color: white; font-weight: 700; font-size: 12px;")
+        # The two buttons that open the drawer live on the left, because that is
+        # the edge the drawer comes out of. Reaching to the far right to make a
+        # panel appear on the far left is the kind of small wrongness you feel
+        # every single time.
         brand = QHBoxLayout()
         brand.setSpacing(9)
         brand.addWidget(mark)
         brand.addWidget(label("ENCORE", 13, QFont.Weight.Bold, spacing=14))
         layout.addLayout(brand)
+
+        layout.addSpacing(6)
+        self.add_button = button("⌕   Add songs", "BtnSoft")
+        self.add_button.clicked.connect(lambda: self.open_drawer("search"))
+        self.library_button = button("Library", "BtnGhost")
+        self.library_button.clicked.connect(lambda: self.open_drawer("library"))
+        layout.addWidget(self.add_button)
+        layout.addWidget(self.library_button)
 
         layout.addStretch(1)
         centre = QHBoxLayout()
@@ -195,19 +211,11 @@ class MainWindow(QMainWindow):
         layout.addLayout(centre)
         layout.addStretch(1)
 
-        actions = QHBoxLayout()
-        actions.setSpacing(8)
-        self.add_button = button("⌕   Add songs", "BtnSoft")
-        self.add_button.clicked.connect(lambda: self.open_drawer("search"))
-        self.library_button = button("Library", "BtnGhost")
-        self.library_button.clicked.connect(lambda: self.open_drawer("library"))
+        # Settings stays on the right: it opens a centred modal, not the drawer.
         self.settings_button = button("⚙", "BtnIcon", height=32, width=32,
                                       tooltip="Audio settings")
         self.settings_button.clicked.connect(self.open_settings)
-        actions.addWidget(self.add_button)
-        actions.addWidget(self.library_button)
-        actions.addWidget(self.settings_button)
-        layout.addLayout(actions)
+        layout.addWidget(self.settings_button)
         return bar
 
     # ------------------------------------------------------------------
