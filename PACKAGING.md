@@ -1,342 +1,180 @@
-# Packaging Guide for Developers
-
-This guide explains how to create a distributable Windows executable for Karaoke Separation Studio.
-
-## Prerequisites
-
-1. **Completed installation** from source (see INSTALL.md)
-2. **All dependencies installed** in virtual environment
-3. **PyInstaller installed** (included in requirements.txt)
-
-## Quick Build
-
-### Option 1: Use Build Script (Recommended)
-
-```cmd
-build.bat
-```
-
-This will:
-1. Clean previous builds
-2. Run PyInstaller with the spec file
-3. Create executable in `dist\KaraokeSeparationStudio\`
-
-### Option 2: Manual PyInstaller Command
-
-```cmd
-.venv\Scripts\activate
-pyinstaller karaoke_app.spec
-```
-
-## Build Output
-
-After successful build:
-
-```
-dist/
-└── KaraokeSeparationStudio/
-    ├── KaraokeSeparationStudio.exe    # Main executable
-    ├── _internal/                      # Dependencies and libraries
-    │   ├── PySide6/
-    │   ├── torch/
-    │   ├── demucs/
-    │   └── ... (other libraries)
-    └── resources/                      # Application resources
-```
-
-**Total size**: ~800 MB - 1.5 GB depending on GPU/CPU version
-
-## PyInstaller Spec File Explained
-
-The `karaoke_app.spec` file controls the build process:
-
-### Key Sections
-
-#### 1. Data Files
-```python
-datas = [
-    (str(app_dir / 'resources'), 'resources'),
-]
-```
-- Includes application resources (icons, etc.)
-- Add more data files here if needed
-
-#### 2. Hidden Imports
-```python
-hiddenimports = [
-    'PySide6.QtCore',
-    'torch',
-    'demucs',
-    # ... etc
-]
-```
-- PyInstaller can't auto-detect these imports
-- Add any missing modules here if you get import errors
-
-#### 3. Exclusions
-```python
-excludes=[
-    'matplotlib',
-    'PIL',
-    'tkinter',
-]
-```
-- Reduces package size by excluding unused libraries
-- Carefully test after adding exclusions
-
-#### 4. EXE Configuration
-```python
-exe = EXE(
-    ...
-    console=False,  # No console window
-    icon=None,      # Add your .ico file here
-)
-```
-
-## Customization
-
-### Adding an Icon
-
-1. Create or obtain a `.ico` file (256x256 recommended)
-2. Save as `karaoke_app/resources/icon.ico`
-3. Edit `karaoke_app.spec`:
-   ```python
-   icon='karaoke_app/resources/icon.ico'
-   ```
-4. Rebuild
-
-### Reducing Package Size
-
-Current size: ~1 GB (GPU) or ~500 MB (CPU)
-
-**Strategies to reduce**:
-
-1. **Use CPU-only version**:
-   - Saves ~500 MB (no CUDA libraries)
-   - Edit requirements to exclude GPU packages
-
-2. **Exclude unused PyTorch components**:
-   ```python
-   excludes=['torch.distributions', 'torch.nn.quantized']
-   ```
-
-3. **Use UPX compression**:
-   - Already enabled: `upx=True`
-   - Downloads UPX automatically
-
-4. **Exclude development tools**:
-   - Already done: excluded matplotlib, PIL, tkinter
-
-### Creating a Single-File Executable
-
-**Warning**: Single-file EXE is slower to start (~10-20 seconds)
-
-Edit `karaoke_app.spec`:
-```python
-exe = EXE(
-    ...
-    exclude_binaries=False,  # Change to False
-    ...
-)
-
-# Comment out COLLECT section
-# coll = COLLECT(...)
-```
-
-Then rebuild.
-
-## Distribution
-
-### Creating a Release Package
-
-1. **Build the application**:
-   ```cmd
-   build.bat
-   ```
-
-2. **Test the executable**:
-   - Run `dist\KaraokeSeparationStudio\KaraokeSeparationStudio.exe`
-   - Test all features (file loading, separation, playback, video)
-   - Check different file formats
-
-3. **Create README for users**:
-   - Copy `INSTALL.md` (executable section) to `dist\KaraokeSeparationStudio\README.txt`
-   - Add any last-minute notes
-
-4. **Create ZIP archive**:
-   ```cmd
-   cd dist
-   powershell Compress-Archive -Path KaraokeSeparationStudio -DestinationPath KaraokeSeparationStudio-v1.0.0.zip
-   ```
-
-5. **Upload to release platform**:
-   - GitHub Releases
-   - Your own server
-   - Include release notes
-
-### Release Checklist
-
-- [ ] Version number updated in `karaoke_app/__init__.py`
-- [ ] Version number updated in `main.py`
-- [ ] Changelog updated
-- [ ] All features tested in built executable
-- [ ] Tested on clean Windows machine (no Python installed)
-- [ ] README included in package
-- [ ] LICENSE included
-- [ ] Virus scan completed (VirusTotal)
-
-## Testing the Build
-
-### Test on Development Machine
-
-```cmd
-cd dist\KaraokeSeparationStudio
-KaraokeSeparationStudio.exe
-```
-
-### Test on Clean Machine
-
-**Important**: Test on a PC without Python/development tools!
-
-1. Copy `dist\KaraokeSeparationStudio\` to USB drive
-2. Run on another Windows PC
-3. Verify:
-   - Application launches
-   - File selection works
-   - Separation completes
-   - Playback works
-   - Video playback works (if applicable)
-   - Settings persist
-
-## Troubleshooting Build Issues
-
-### Import errors in built executable
-
-**Symptom**: App works in dev, fails in EXE with import errors
-
-**Solution**:
-1. Check logs (exe creates logs in same folder)
-2. Add missing imports to `hiddenimports` in spec file
-3. Rebuild
-
-### Missing DLLs
-
-**Symptom**: "DLL not found" errors
-
-**Solution**:
-1. Identify missing DLL (from error message)
-2. Add to `binaries` in spec file:
-   ```python
-   binaries = [
-       ('path/to/missing.dll', '.'),
-   ]
-   ```
-3. Rebuild
-
-### Executable too large
-
-**Symptom**: 2+ GB executable
-
-**Solution**:
-- Use CPU-only version (removes CUDA ~500 MB)
-- Add more exclusions
-- Check for duplicate libraries in `_internal`
-
-### Slow startup (single-file EXE)
-
-**Symptom**: 10-30 second startup time
-
-**Solution**:
-- Use folder distribution instead (change back to `exclude_binaries=True`)
-- Single-file extracts to temp on every run
-
-### PyTorch/CUDA not working in EXE
-
-**Symptom**: GPU detection fails in built EXE
-
-**Solution**:
-1. Ensure CUDA DLLs are included
-2. Check `torch` is in `hiddenimports`
-3. Test with environment variable:
-   ```cmd
-   set CUDA_VISIBLE_DEVICES=0
-   KaraokeSeparationStudio.exe
-   ```
-
-## Advanced: Code Signing (Optional)
-
-To avoid Windows SmartScreen warnings:
-
-1. **Obtain code signing certificate**
-   - Purchase from certificate authority
-   - Or use self-signed (limited benefit)
-
-2. **Sign the executable**:
-   ```cmd
-   signtool sign /f certificate.pfx /p password /t http://timestamp.digicert.com dist\KaraokeSeparationStudio\KaraokeSeparationStudio.exe
-   ```
-
-3. **Verify signature**:
-   - Right-click EXE → Properties → Digital Signatures
-
-## Build Environment Best Practices
-
-1. **Use clean virtual environment**:
-   - Delete `.venv` and recreate before building releases
-   - Ensures no dev dependencies leak in
-
-2. **Pin dependency versions**:
-   - Use exact versions in `requirements.txt`
-   - Prevents breaking changes
-
-3. **Test on multiple Windows versions**:
-   - Windows 10 (minimum version)
-   - Windows 11
-
-4. **Document build process**:
-   - Update this file with any changes
-   - Keep changelog updated
-
-## Continuous Integration (Optional)
-
-For automated builds, consider:
-
-- **GitHub Actions**: Automate builds on every release
-- **Example workflow**: Build on tag push
-- **Artifacts**: Upload built EXE as release asset
-
-Example `.github/workflows/build.yml`:
-```yaml
-name: Build Release
-
-on:
-  push:
-    tags:
-      - 'v*'
-
-jobs:
-  build:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
-        with:
-          python-version: '3.11'
-      - run: pip install -r requirements.txt
-      - run: pyinstaller karaoke_app.spec
-      - uses: actions/upload-artifact@v2
-        with:
-          name: KaraokeSeparationStudio
-          path: dist/KaraokeSeparationStudio/
-```
-
-## Questions?
-
-For build-related issues:
-1. Check PyInstaller documentation
-2. Review logs in `build/` folder
-3. Open issue on GitHub
+# Packaging
+
+Building a self-contained Encore with PyInstaller. Everything here has been run;
+the notes describe what actually happened, including the parts that are
+inconvenient.
 
 ---
 
-**Happy packaging!** 📦
+## Build
+
+```bash
+./setup.sh                                   # if you have not already
+.venv/bin/python -m PyInstaller --noconfirm --clean encore.spec
+```
+
+Windows:
+
+```cmd
+setup.bat
+.venv\Scripts\python -m PyInstaller --noconfirm --clean encore.spec
+```
+
+Takes about a minute on an M-series Mac. You get:
+
+```
+dist/
+├── Encore/           637 MB   portable folder — ship this on Windows and Linux
+│   ├── Encore                 the executable
+│   └── _internal/             everything else
+└── Encore.app/       644 MB   macOS bundle
+```
+
+Run it:
+
+```bash
+./dist/Encore/Encore                  # or open dist/Encore.app
+```
+
+---
+
+## Why there is an `encore.py`
+
+`karaoke_app/main.py` uses relative imports, so it only works as part of its
+package — `python -m karaoke_app.main` is fine. PyInstaller runs the entry
+script as `__main__` with no package context, and a build pointed straight at
+`karaoke_app/main.py` dies immediately:
+
+```
+ImportError: attempted relative import with no known parent package
+```
+
+`encore.py` exists to be that entry point: it puts the project root on the path,
+imports `karaoke_app.main` the normal way, and calls it. The spec points at
+`encore.py`, not at `karaoke_app/main.py`.
+
+---
+
+## What the spec has to say explicitly
+
+**The typefaces.** Space Grotesk and JetBrains Mono are read from
+`karaoke_app/ui/fonts/` at start-up rather than imported, so PyInstaller cannot
+see them. They are listed under `datas`. Without that the build runs but falls
+back to system fonts and looks wrong. Verify after a build:
+
+```bash
+find dist -path "*ui/fonts*" -name "*.ttf"
+```
+
+**demucs.** It reaches for submodules dynamically, so `collect_submodules`
+and `collect_data_files` are both needed. Without them the app starts, the GUI
+works, and separation fails the first time you try it — a failure you will only
+notice by testing an actual download.
+
+**Microphone permission on macOS.** The bundle declares
+`NSMicrophoneUsageDescription`. macOS silently denies capture without it, and
+the app just looks like it cannot hear you.
+
+---
+
+## What is *not* in the bundle
+
+**ffmpeg.** It stays an external dependency. It is a large binary with its own
+licensing considerations, and bundling it is a decision about redistribution,
+not a technical convenience. The app expects `ffmpeg` on PATH; without it every
+download fails at the decode step. If you ship Encore to people who will not
+install it themselves, you have to make that call and add it to `binaries` in
+the spec.
+
+**The separation model.** demucs fetches `htdemucs` (~80 MB) from Hugging Face
+the first time it separates anything, and caches it in `~/.cache/torch/`. So a
+freshly installed copy needs network once, even though everything else works
+offline. To ship it inside the bundle, add the cached files under `datas` and
+point `TORCH_HOME` at them from a runtime hook.
+
+---
+
+## Start-up time
+
+The first launch of a frozen build is slow — around **38 seconds** in testing,
+while the operating system faults in 640 MB of freshly written files. Every
+launch after that is about **1 second** to the window and **4 seconds** to the
+separation model being ready.
+
+This surprises people, so it is worth saying in your release notes. There is no
+fix short of a smaller bundle.
+
+---
+
+## Size
+
+640 MB, and torch is nearly all of it. Real reductions, in order of how much
+they buy you:
+
+- **CPU-only torch on Linux/Windows.** The CUDA wheel carries hundreds of
+  megabytes of kernels. Build from `requirements.txt`, not
+  `requirements-gpu.txt`, unless you are shipping a GPU build on purpose.
+- **`--exclude-module` for what torch drags in.** The spec already drops
+  matplotlib, tkinter, PyQt and IPython.
+- **UPX** is off. It shaves some size but slows start-up further and trips
+  antivirus heuristics on Windows. Not worth it here.
+
+Do not try to trim PySide6 by hand. QtMultimedia is needed for the video
+fallback stage and its dependency graph is not obvious.
+
+---
+
+## Signing and distribution
+
+The build is **unsigned**. As shipped:
+
+- **macOS** — Gatekeeper refuses to open it. Users have to right-click → Open,
+  or you sign and notarise with an Apple Developer ID.
+- **Windows** — SmartScreen shows "unrecognised app" until the binary builds
+  reputation, or you sign it with a code-signing certificate.
+
+Neither is a build problem; both need a paid certificate.
+
+---
+
+## Licensing, if you distribute this
+
+Worth reading before you hand a build to anyone:
+
+- **Encore** is MIT.
+- **Bundled fonts** — Space Grotesk and JetBrains Mono, both SIL Open Font
+  Licence. The licence texts ship alongside them in `karaoke_app/ui/fonts/` and
+  must stay there.
+- **PySide6** is LGPL. Dynamic linking, as PyInstaller does it, is compatible,
+  but the LGPL obliges you to let users replace the Qt libraries.
+- **demucs** is MIT; its pretrained weights have their own terms.
+- **ffmpeg**, if you choose to bundle it, is LGPL or GPL depending on the build
+  you take. A GPL build makes the whole distribution GPL.
+- **The music** is not yours. Encore downloads copyrighted recordings and
+  fetches lyrics from a community database. Shipping the app is fine; shipping
+  it with songs, stems or lyrics inside is not.
+
+---
+
+## Reproducing a clean build
+
+```bash
+rm -rf build dist
+.venv/bin/python -m PyInstaller --noconfirm --clean encore.spec
+ENCORE_HOME=/tmp/encore-test ./dist/Encore/Encore
+```
+
+`ENCORE_HOME` sends the test run's library, settings and logs somewhere
+disposable, so you are testing a fresh install rather than your own data.
+
+Check the log it writes to `/tmp/encore-test/logs/`. A good build reaches:
+
+```
+UI font: Space Grotesk · mono font: JetBrains Mono
+Output open: 48000 Hz, block 256, latency 22.0 ms
+Separation engine initialized. Device: mps
+AI model ready!
+```
+
+If the font line names something else, the `datas` entry is broken. If
+`AI model ready!` never appears, demucs did not survive the freeze.

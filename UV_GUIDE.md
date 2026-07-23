@@ -1,387 +1,153 @@
-# UV Kullanım Kılavuzu | UV Usage Guide
+# uv — the package manager Encore uses
 
-[English version below](#english-version)
+[English below](#english) · Türkçe önce
+
+`setup.sh` and `setup.bat` use [uv](https://github.com/astral-sh/uv) instead of
+pip. You do not have to know anything about it to run Encore — this page is for
+when you want to do something the setup script does not cover.
 
 ---
 
 ## 🇹🇷 Türkçe
 
-### UV Nedir?
+### Neden uv?
 
-**UV**, Astral tarafından geliştirilen ultra-hızlı bir Python paket yöneticisidir. Rust ile yazılmıştır ve pip'ten **10-100x daha hızlıdır**.
+Encore'un bağımlılıkları ağır: torch, demucs ve PySide6 birlikte birkaç yüz
+megabayt. pip bunları çözerken uzun sürüyor, uv aynı işi çok daha hızlı yapıyor
+ve indirdiklerini makine genelinde bir önbellekte tutuyor — yani ikinci bir
+projede aynı paketler tekrar inmiyor.
 
-### Neden UV Kullanmalıyız?
+| | pip | uv |
+|---|---|---|
+| Bu projenin kurulumu | birkaç dakika | ~1 dakika |
+| Bağımlılık çözümü | yavaş | hızlı |
+| Önbellek | proje başına | makine genelinde ortak |
+| Python sürümü kurma | yok | var (`uv python install`) |
 
-| Özellik | pip | UV |
-|---------|-----|-----|
-| **Kurulum Hızı** | ~5-10 dakika | ~30-60 saniye |
-| **Dependency Resolution** | Yavaş | Çok hızlı |
-| **Disk Kullanımı** | Her proje ayrı | Global cache (daha az yer) |
-| **Windows Desteği** | Bazen sorunlu | Mükemmel |
-| **Modern** | Eski teknoloji | 2024'ün en yeni aracı |
+### Kurulum
 
-### UV Kurulumu
+`./setup.sh` uv yoksa kendisi kuruyor. Elle kurmak istersen:
 
-#### Otomatik Kurulum (Önerilen)
-
-```cmd
-setup-uv.bat
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh    # macOS / Linux
 ```
 
-Bu script UV'yi otomatik olarak kurar ve projeyi ayarlar.
-
-#### Manuel Kurulum
-
-**PowerShell ile:**
 ```powershell
-irm https://astral.sh/uv/install.ps1 | iex
+irm https://astral.sh/uv/install.ps1 | iex          # Windows
 ```
 
-**Manuel indirme:**
-1. https://github.com/astral-sh/uv/releases adresinden indirin
-2. PATH'e ekleyin
+Doğrula:
 
-**Kurulumu doğrulayın:**
-```cmd
+```bash
 uv --version
 ```
 
-### Projeyi UV ile Kurma
+### Sık gereken komutlar
 
-#### Yöntem 1: Otomatik Script
-
-```cmd
-setup-uv.bat
-```
-
-GPU desteği sorulduğunda:
-- **Y** = NVIDIA GPU'nuz varsa (10x daha hızlı separation)
-- **N** = GPU yoksa veya CPU kullanmak istiyorsanız
-
-#### Yöntem 2: Manuel UV Komutları
-
-**CPU versiyonu:**
-```cmd
-uv venv
+```bash
+# Ortamı sıfırdan kur (setup.sh'in yaptığı)
+uv python install 3.11
+uv venv --python 3.11
 uv pip install -r requirements.txt
-```
 
-**GPU versiyonu (CUDA 12.1):**
-```cmd
-uv venv
-uv pip install --index-url https://download.pytorch.org/whl/cu121 torch torchaudio
-uv pip install PySide6>=6.8.0 demucs>=4.0.0 soundfile>=0.12.1 sounddevice>=0.4.6 "numpy>=1.24.0,<3.0.0" scipy>=1.11.0 pyinstaller>=6.0.0
-```
-
-#### Yöntem 3: pyproject.toml ile (En Modern)
-
-```cmd
-# CPU versiyonu
-uv sync
-
-# GPU versiyonu
-uv sync --extra gpu
-```
-
-### Uygulamayı Çalıştırma
-
-**UV ile:**
-```cmd
-run-uv.bat
-```
-
-veya
-
-```cmd
-uv run python karaoke_app/main.py
-```
-
-**Klasik yöntem (pip):**
-```cmd
-run.bat
-```
-
-### Paket Ekleme/Güncelleme
-
-**Yeni paket eklemek:**
-```cmd
-uv pip install <paket-adi>
-```
-
-**Tüm paketleri güncellemek:**
-```cmd
+# Her şeyi güncelle
 uv pip install -r requirements.txt --upgrade
+
+# Sadece yt-dlp'yi güncelle — YouTube format değiştirince gereken şey budur
+uv pip install --upgrade yt-dlp
+
+# Ne kurulu?
+uv pip list
+
+# Ortamı tamamen sil ve baştan kur
+rm -rf .venv && ./setup.sh
 ```
 
-**Tek bir paketi güncellemek:**
-```cmd
-uv pip install --upgrade <paket-adi>
+### NVIDIA ekran kartı
+
+Varsayılan `torch` tekerleği Linux ve Windows'ta yalnızca CPU. CUDA için:
+
+```bash
+uv pip install -r requirements-gpu.txt
 ```
 
-### UV Cache Temizleme
+Apple Silicon'da bir şey yapmana gerek yok — Metal desteği varsayılan tekerlekte
+geliyor. Uygulama açılışta hangi cihazı seçtiğini log'a yazıyor.
 
-UV paketleri global bir cache'de saklar. Yer açmak için:
+### Disk yer açma
 
-```cmd
+uv indirdiği her şeyi ortak bir önbellekte tutuyor. Yer daralırsa:
+
+```bash
 uv cache clean
 ```
 
-### Performans Karşılaştırması
-
-**Bu projede gerçek test (Windows 11, PyTorch + PySide6):**
-
-| İşlem | pip | UV | Hız Farkı |
-|-------|-----|-----|-----------|
-| İlk kurulum | ~8 dakika | ~45 saniye | **10.6x daha hızlı** |
-| Tekrar kurulum | ~5 dakika | ~15 saniye | **20x daha hızlı** |
-| Tek paket ekle | ~30 saniye | ~2 saniye | **15x daha hızlı** |
-
-### Sorun Giderme
-
-#### "uv: command not found"
-
-**Çözüm:** PATH'e ekleyin veya PowerShell'i yeniden başlatın:
-```cmd
-refreshenv
-```
-
-veya terminal'i kapatıp açın.
-
-#### UV ile kurulum başarısız
-
-**Çözüm 1:** Klasik pip'e geri dönün:
-```cmd
-setup.bat
-```
-(UV kullanmayı reddedin)
-
-**Çözüm 2:** Cache temizleyin:
-```cmd
-uv cache clean
-setup-uv.bat
-```
-
-#### GPU versiyonu çalışmıyor
-
-**Kontrol edin:**
-```cmd
-.venv\Scripts\activate
-python -c "import torch; print(torch.cuda.is_available())"
-```
-
-`True` görmüyorsanız:
-1. NVIDIA sürücülerini güncelleyin
-2. CPU versiyonunu kurun
-
-### pip'ten UV'ye Geçiş
-
-Mevcut pip kurulumunuz varsa:
-
-```cmd
-# Eski venv'i silin
-rmdir /s /q .venv
-
-# UV ile yeniden kurun
-setup-uv.bat
-```
+Bu sadece önbelleği siler; kurulu ortam çalışmaya devam eder.
 
 ---
 
-## 🇬🇧 English Version
+## English
 
-### What is UV?
+### Why uv
 
-**UV** is an ultra-fast Python package manager developed by Astral. Written in Rust, it's **10-100x faster than pip**.
+Encore's dependencies are heavy — torch, demucs and PySide6 together are a few
+hundred megabytes. uv resolves and installs them substantially faster than pip
+and keeps downloads in a machine-wide cache, so a second project sharing the
+same packages does not re-download them. It can also install Python itself,
+which is why `setup.sh` can promise 3.11 without you having to arrange it.
 
-### Why Use UV?
+### Installing uv
 
-| Feature | pip | UV |
-|---------|-----|-----|
-| **Install Speed** | ~5-10 minutes | ~30-60 seconds |
-| **Dependency Resolution** | Slow | Very fast |
-| **Disk Usage** | Each project separate | Global cache (less space) |
-| **Windows Support** | Sometimes problematic | Excellent |
-| **Modern** | Old tech | Latest 2024 tool |
+`./setup.sh` installs it if missing. By hand:
 
-### Installing UV
-
-#### Automatic Installation (Recommended)
-
-```cmd
-setup-uv.bat
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh     # macOS / Linux
+irm https://astral.sh/uv/install.ps1 | iex          # Windows PowerShell
 ```
 
-This script automatically installs UV and sets up the project.
+### The commands worth knowing
 
-#### Manual Installation
-
-**With PowerShell:**
-```powershell
-irm https://astral.sh/uv/install.ps1 | iex
-```
-
-**Manual download:**
-1. Download from https://github.com/astral-sh/uv/releases
-2. Add to PATH
-
-**Verify installation:**
-```cmd
-uv --version
-```
-
-### Setting Up Project with UV
-
-#### Method 1: Automatic Script
-
-```cmd
-setup-uv.bat
-```
-
-When asked about GPU support:
-- **Y** = If you have NVIDIA GPU (10x faster separation)
-- **N** = No GPU or want to use CPU
-
-#### Method 2: Manual UV Commands
-
-**CPU version:**
-```cmd
-uv venv
+```bash
+# Recreate the environment from scratch — what setup.sh does
+uv python install 3.11
+uv venv --python 3.11
 uv pip install -r requirements.txt
-```
 
-**GPU version (CUDA 12.1):**
-```cmd
-uv venv
-uv pip install --index-url https://download.pytorch.org/whl/cu121 torch torchaudio
-uv pip install PySide6>=6.8.0 demucs>=4.0.0 soundfile>=0.12.1 sounddevice>=0.4.6 "numpy>=1.24.0,<3.0.0" scipy>=1.11.0 pyinstaller>=6.0.0
-```
-
-#### Method 3: Using pyproject.toml (Most Modern)
-
-```cmd
-# CPU version
-uv sync
-
-# GPU version
-uv sync --extra gpu
-```
-
-### Running the Application
-
-**With UV:**
-```cmd
-run-uv.bat
-```
-
-or
-
-```cmd
-uv run python karaoke_app/main.py
-```
-
-**Classic method (pip):**
-```cmd
-run.bat
-```
-
-### Adding/Updating Packages
-
-**Add new package:**
-```cmd
-uv pip install <package-name>
-```
-
-**Update all packages:**
-```cmd
+# Upgrade everything
 uv pip install -r requirements.txt --upgrade
+
+# Upgrade only yt-dlp — the usual fix when downloads start failing,
+# because YouTube changes its formats often
+uv pip install --upgrade yt-dlp
+
+uv pip list                 # what is installed
+uv cache clean              # reclaim disk; the venv keeps working
+rm -rf .venv && ./setup.sh  # start over
 ```
 
-**Update single package:**
-```cmd
-uv pip install --upgrade <package-name>
+### NVIDIA CUDA
+
+The default `torch` wheel is CPU-only on Linux and Windows:
+
+```bash
+uv pip install -r requirements-gpu.txt
 ```
 
-### Cleaning UV Cache
+`pyproject.toml` already declares the PyTorch CUDA index for the `gpu` extra, so
+`uv sync --extra gpu` works too if you prefer the project-file workflow.
 
-UV stores packages in a global cache. To free up space:
+On Apple Silicon there is nothing to do — Metal support ships in the default
+wheel. Either way, the app logs which device it chose at start-up.
 
-```cmd
-uv cache clean
+### If you would rather not use uv
+
+Nothing in Encore depends on it. Plain pip works:
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python -m karaoke_app.main
 ```
 
-### Performance Comparison
-
-**Real test on this project (Windows 11, PyTorch + PySide6):**
-
-| Operation | pip | UV | Speed Difference |
-|-----------|-----|-----|------------------|
-| First install | ~8 minutes | ~45 seconds | **10.6x faster** |
-| Reinstall | ~5 minutes | ~15 seconds | **20x faster** |
-| Add one package | ~30 seconds | ~2 seconds | **15x faster** |
-
-### Troubleshooting
-
-#### "uv: command not found"
-
-**Solution:** Add to PATH or restart PowerShell:
-```cmd
-refreshenv
-```
-
-or close and reopen terminal.
-
-#### UV installation failed
-
-**Solution 1:** Fall back to classic pip:
-```cmd
-setup.bat
-```
-(Decline UV usage)
-
-**Solution 2:** Clean cache:
-```cmd
-uv cache clean
-setup-uv.bat
-```
-
-#### GPU version not working
-
-**Check:**
-```cmd
-.venv\Scripts\activate
-python -c "import torch; print(torch.cuda.is_available())"
-```
-
-If you don't see `True`:
-1. Update NVIDIA drivers
-2. Install CPU version instead
-
-### Migrating from pip to UV
-
-If you have existing pip installation:
-
-```cmd
-# Delete old venv
-rmdir /s /q .venv
-
-# Reinstall with UV
-setup-uv.bat
-```
-
----
-
-## UV Kaynakları | UV Resources
-
-- **Resmi Site | Official Site:** https://github.com/astral-sh/uv
-- **Dokümantasyon | Documentation:** https://docs.astral.sh/uv/
-- **Hız Karşılaştırmaları | Speed Comparisons:** https://github.com/astral-sh/uv#highlights
-
----
-
-## Özet | Summary
-
-🇹🇷 **UV kullanmak, kurulum süresini 8 dakikadan 45 saniyeye düşürür!**
-
-🇬🇧 **Using UV reduces installation time from 8 minutes to 45 seconds!**
-
-✅ **Önerilen yöntem | Recommended method:** `setup-uv.bat`
+`setup.sh` is a convenience, not a requirement.

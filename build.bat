@@ -1,48 +1,38 @@
 @echo off
-REM Build script for Karaoke Separation Studio (Windows)
+setlocal enabledelayedexpansion
+REM Build a self-contained Encore with PyInstaller. See PACKAGING.md.
 
 echo ====================================
-echo Karaoke Separation Studio - Build
+echo  Encore - Karaoke Studio - Build
 echo ====================================
 echo.
 
-REM Check if virtual environment exists
 if not exist ".venv" (
-    echo Virtual environment not found!
-    echo Please run setup.bat first.
+    echo Virtual environment not found. Run setup.bat first.
     pause
     exit /b 1
 )
 
-REM Activate virtual environment
-call .venv\Scripts\activate.bat
-
-REM Clean previous builds
 echo Cleaning previous builds...
-if exist "build" rmdir /s /q build
-if exist "dist" rmdir /s /q dist
+if exist "build" rmdir /s /q "build"
+if exist "dist" rmdir /s /q "dist"
 
-REM Run PyInstaller
-echo.
-echo Building executable...
-echo This may take several minutes...
-echo.
+echo Building...
+.venv\Scripts\python.exe -m PyInstaller --noconfirm --clean encore.spec
 
-pyinstaller karaoke_app.spec
-
-if %ERRORLEVEL% NEQ 0 (
+if !ERRORLEVEL! NEQ 0 (
     echo.
-    echo Build failed!
+    echo Build failed.
     pause
     exit /b 1
 )
 
 echo.
 echo ====================================
-echo Build completed successfully!
+echo  Done: dist\Encore\Encore.exe
 echo ====================================
 echo.
-echo Executable location: dist\KaraokeSeparationStudio\
-echo To run: dist\KaraokeSeparationStudio\KaraokeSeparationStudio.exe
+echo Note: ffmpeg is NOT bundled - it must be on the PATH of whoever runs it.
+echo       The separation model downloads once, on first use.
 echo.
 pause

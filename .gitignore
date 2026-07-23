@@ -20,9 +20,9 @@ venv/
 ENV/
 env/
 
-# PyInstaller
-*.spec
+# PyInstaller — encore.spec is checked in on purpose; generated ones are not
 *.manifest
+karaoke_app.spec
 
 # Everything Encore writes at runtime
 karaoke_app/downloads/

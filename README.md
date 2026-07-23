@@ -89,6 +89,10 @@ You also need **ffmpeg** on your PATH (`brew install ffmpeg`, or
 `sudo apt install ffmpeg`). Downloads arrive in containers libsndfile cannot read,
 and ffmpeg is what turns them into audio.
 
+Longer versions: [INSTALL.md](INSTALL.md) for a full walkthrough and
+troubleshooting, [UV_GUIDE.md](UV_GUIDE.md) for the package manager,
+[PACKAGING.md](PACKAGING.md) for building a distributable.
+
 ### First run
 
 1. Click **Add songs**, type a song name, press Enter.
