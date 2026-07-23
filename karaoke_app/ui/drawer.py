@@ -8,7 +8,8 @@ import logging
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import (QEasingCurve, QPoint, QPropertyAnimation, Qt,
+                            QTimer, Signal)
 from PySide6.QtGui import QFont, QPixmap
 from PySide6.QtWidgets import (QFileDialog, QHBoxLayout, QLabel, QLineEdit,
                                QScrollArea, QSizePolicy, QVBoxLayout, QWidget)
@@ -192,6 +193,8 @@ class LibraryRow(QWidget):
 class SongDrawer(QWidget):
     """The whole overlay: tabs, search field, result list, library list."""
 
+    PANEL_WIDTH = 430
+
     prepareRequested = Signal(object)
     playNow = Signal(str)
     queueSong = Signal(str)
@@ -210,23 +213,24 @@ class SongDrawer(QWidget):
         # back to disk (let alone the network) for pictures we already have.
         self._thumb_cache: Dict[str, QPixmap] = {}
 
-        root = QHBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(0)
+        # Positioned by hand rather than by a layout, so the panel can slide in
+        # from the left edge the way the design does.
+        self.scrim = QWidget(self)
+        self.scrim.setCursor(Qt.CursorShape.ArrowCursor)
+        self.scrim.setStyleSheet("background: rgba(4,5,8,0.35);")
+        self.scrim.mousePressEvent = lambda _: self.closed.emit()
 
-        self.panel = QWidget()
-        self.panel.setFixedWidth(430)
+        self.panel = QWidget(self)
+        self.panel.setFixedWidth(self.PANEL_WIDTH)
         self.panel.setStyleSheet(
             "QWidget#DrawerPanel { background: rgba(12,14,21,0.98);"
             f" border-right: 1px solid {theme.BORDER_STRONG}; }}")
         self.panel.setObjectName("DrawerPanel")
-        root.addWidget(self.panel)
+        self.panel.raise_()
 
-        scrim = QWidget()
-        scrim.setCursor(Qt.CursorShape.ArrowCursor)
-        scrim.setStyleSheet("background: rgba(4,5,8,0.35);")
-        scrim.mousePressEvent = lambda _: self.closed.emit()
-        root.addWidget(scrim, 1)
+        self._slide = QPropertyAnimation(self.panel, b"pos", self)
+        self._slide.setDuration(220)
+        self._slide.setEasingCurve(QEasingCurve.Type.OutCubic)
 
         column = QVBoxLayout(self.panel)
         column.setContentsMargins(0, 0, 0, 0)
@@ -321,6 +325,22 @@ class SongDrawer(QWidget):
         self._debounce.setSingleShot(True)
         self._debounce.setInterval(420)
         self._debounce.timeout.connect(self._search_now)
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self.scrim.setGeometry(0, 0, self.width(), self.height())
+        self.panel.setFixedHeight(self.height())
+        if self._slide.state() != QPropertyAnimation.State.Running:
+            self.panel.move(0, 0)
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        self.panel.setFixedHeight(self.height())
+        self.panel.raise_()
+        self._slide.stop()
+        self._slide.setStartValue(QPoint(-self.PANEL_WIDTH, 0))
+        self._slide.setEndValue(QPoint(0, 0))
+        self._slide.start()
 
     # -- tabs -------------------------------------------------------------
     def show_tab(self, name: str) -> None:

@@ -34,10 +34,20 @@ Three outcomes, three stages:
 | Untimed lyrics | Same stage, lines paced evenly across the song and labelled as an estimate |
 | Nothing found | The original video plays, muted, with your separated stems as the audio |
 
-**Highlights word by word.** LRCLIB timestamps a line, not a word, so Encore
-spreads the words across their line's own span weighted by syllable count — a
-three-syllable word gets three times the time of a one-syllable one — and sweeps
-the highlight through them. Unsung words stay readable ahead of the beam.
+**Highlights word by word.** The whole sheet scrolls past with the line being
+sung held near the middle, so you can read ahead and see where you are. LRCLIB
+timestamps a line, not a word, so Encore spreads the words across their line's
+own span weighted by syllable count — a three-syllable word gets three times the
+time of a one-syllable one — and sweeps the highlight through them.
+
+**Fixes lyrics that run early.** Those timestamps describe the studio recording,
+but an official video often opens with a spoken scene, which puts every line
+ahead of the singer. Encore measures the separated vocal stem: if it is silent
+for the first twenty seconds, nobody is singing then, and any line scheduled
+inside that silence is provably wrong — so the sheet is pushed back by the
+length of the intro. Across a sixteen-song library this corrected exactly the
+two that were wrong and left the rest alone. The bar under the stage shows the
+offset and lets you nudge it by hand (`[` and `]`).
 
 **Splits the song.** Demucs `htdemucs` separates vocals from everything else, using
 CUDA or Apple Metal when available and falling back to CPU. Stems are cached, so a
@@ -45,7 +55,9 @@ song is only ever separated once.
 
 **Mixes live.** Vocals and instrumental on their own faders (drop the vocals to
 sing, raise them to learn), one fader per microphone, and a master. Per-mic
-effects: reverb, echo, autotune, bass and treble, with six presets. **Every
+effects: reverb, echo, autotune, bass and treble, with seven presets — including
+**Robot**, which holds your voice on a single note picked from your own range
+instead of correcting it to the nearest one. **Every
 microphone starts dry** — effects are something you switch on, never a surprise.
 Only *Arena*, *Echo River* and *Cathedral* produce an audible repeat; *Studio* is
 a short room and nothing else.
@@ -113,6 +125,7 @@ Nothing stops.
 | `Ctrl+L` | Library |
 | `Ctrl+R` | Start / stop recording |
 | `Ctrl+→` | Skip to the next queued song |
+| `[` `]` | Nudge the lyrics later / earlier |
 | `Esc` | Close the drawer |
 
 ### Microphones

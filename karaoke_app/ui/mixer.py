@@ -213,9 +213,10 @@ class FXRack(QWidget):
             chips.addWidget(chip, position // 3, position % 3)
         chip_host = QWidget()
         chip_host.setLayout(chips)
-        # Two rows, the gap between them, and a little slack underneath so the
-        # first slider label can never crowd the second row of chips.
-        chip_host.setFixedHeight(24 * 2 + 5 + 16)
+        # Sized from the number of presets, not a hard-coded two rows — adding
+        # one more otherwise squashes them all until the labels clip.
+        rows = -(-len(PRESETS) // 3)
+        chip_host.setFixedHeight(24 * rows + 5 * (rows - 1) + 16)
         outer.addWidget(chip_host)
 
         for key in FX_PARAMS:
@@ -385,7 +386,7 @@ class MixerPanel(QWidget):
         # Without a floor the surrounding layout squeezes the rack until the
         # preset grid collides with the sliders. The panel scrolls, so claiming
         # the space it actually needs costs nothing.
-        self.fx_rack.setMinimumHeight(308)
+        self.fx_rack.setMinimumHeight(252 + 29 * (-(-len(PRESETS) // 3)))
         self.fx_rack.presetPicked.connect(self.presetPicked)
         self.fx_rack.paramChanged.connect(self.paramChanged)
         self.fx_rack.closed.connect(self.close_fx)

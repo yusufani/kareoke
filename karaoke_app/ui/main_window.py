@@ -29,7 +29,8 @@ from ..audio.fx import FX_PARAMS
 from ..audio.youtube import SearchResult
 from ..core.config import Config
 from ..core import migrate
-from ..core.jobs import (STAGE_LYRICS, STAGE_READY, STAGE_SEPARATE, JobManager)
+from ..core.jobs import (STAGE_DOWNLOAD, STAGE_LYRICS, STAGE_READY,
+                        STAGE_SEPARATE, JobManager)
 from ..core.library import LYRICS_UNKNOWN, Library, SongEntry
 from ..core.paths import RECORDINGS_DIR
 from . import theme
@@ -247,6 +248,9 @@ class MainWindow(QMainWindow):
         self.jobs.signals.failed.connect(self._on_job_failed)
         self.jobs.signals.lyricsReady.connect(self._on_lyrics_ready)
 
+        self.stage.offsetChanged.connect(self._save_offset)
+        self.stage.videoRequested.connect(self.fetch_video)
+
         self.takes_popover.exportTake.connect(self._export_take)
         self.takes_popover.playTake.connect(self._reveal_take)
 
@@ -259,6 +263,8 @@ class MainWindow(QMainWindow):
             "Right": lambda: self._nudge(5),
             "Ctrl+Right": self.play_next,
             "Escape": self.close_drawer,
+            "[": lambda: self.stage.nudge_offset(0.25),
+            "]": lambda: self.stage.nudge_offset(-0.25),
         }
         for keys, handler in shortcuts.items():
             QShortcut(QKeySequence(keys), self, activated=handler)
@@ -448,6 +454,37 @@ class MainWindow(QMainWindow):
         self.config.save()
         self.statusBar().clearMessage()
 
+    @Slot(str, float)
+    def _save_offset(self, song_id: str, offset: float) -> None:
+        """Remember a hand-tuned lyric offset alongside the cached lyrics."""
+        cached = lyrics_api.load_cached(song_id)
+        if cached is None:
+            return
+        cached.offset = offset
+        lyrics_api.save_cached(song_id, cached)
+        self._flash(f"Lyrics shifted {offset:+.2f}s for this song")
+
+    def fetch_video(self, song_id: str) -> None:
+        """Download the original video for a song that only has audio."""
+        entry = self.library.get(song_id)
+        if entry is None:
+            return
+        if entry.has_video:
+            self.stage.show_face("video")
+            return
+        if entry.source != "youtube" or not entry.url:
+            self._flash("There is no video to fetch for this song.")
+            return
+        if self.jobs.job_for(f"video:{song_id}"):
+            self._flash("Already downloading that video…")
+            return
+        job_id = self.jobs.fetch_video(entry)
+        self._active_jobs[job_id] = {
+            "video_id": "", "title": f"Video · {entry.title}",
+            "stage": STAGE_DOWNLOAD, "fraction": 0.0, "label": "Downloading video",
+        }
+        self._flash(f"Downloading the video for “{entry.title}” in the background…")
+
     @Slot(str, object)
     def _on_lyrics_ready(self, song_id: str, result) -> None:
         """A late lookup came back — swap the stage over if it is still the
@@ -480,7 +517,7 @@ class MainWindow(QMainWindow):
     def stop_playback(self) -> None:
         self.engine.stop()
         self.transport.set_playing(False)
-        self.stage._index = -1
+        self.stage.invalidate()
 
     def play_next(self) -> None:
         if self.queue:
@@ -488,7 +525,7 @@ class MainWindow(QMainWindow):
 
     def _on_seek(self, fraction: float) -> None:
         self.engine.seek(fraction * self.engine.duration)
-        self.stage._index = -1          # force a lyric repaint at the new spot
+        self.stage.invalidate()         # force a lyric repaint at the new spot
 
     def _on_scrubbing(self, active: bool) -> None:
         self._scrubbing = active
@@ -496,7 +533,7 @@ class MainWindow(QMainWindow):
     def _nudge(self, seconds: float) -> None:
         if self.engine.loaded:
             self.engine.seek(self.engine.position + seconds)
-            self.stage._index = -1
+            self.stage.invalidate()
 
     def _on_speed(self, direction: int) -> None:
         self.engine.set_speed(round(self.engine.speed + direction * 0.05, 2))

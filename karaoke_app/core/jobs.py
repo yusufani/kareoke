@@ -24,6 +24,7 @@ from typing import Callable, Dict, Optional
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, Signal, Slot
 
 from ..audio import lyrics as lyrics_api
+from ..audio import sync as sync_api
 from ..audio import youtube
 from ..audio.youtube import Downloader, SearchResult
 from .library import (LYRICS_NONE, LYRICS_PLAIN, LYRICS_SYNCED, Library,
@@ -295,6 +296,14 @@ class _PrepareTask(QRunnable):
         finally:
             self.manager.separation_slot.release()
 
+        # Now that the vocal stem exists, check whether the lyrics line up with
+        # it. An upload with an intro scene runs every line early.
+        if found.synced:
+            offset, reason = sync_api.estimate_offset(vocals, found.lines)
+            if offset:
+                found.offset = offset
+                lyrics_api.save_cached(item.video_id, found)
+
         entry = SongEntry(
             id=item.video_id,
             title=track or item.title,
@@ -314,6 +323,49 @@ class _PrepareTask(QRunnable):
         self.manager.library.put(entry)
         self._emit(STAGE_READY, 1.0, "Ready")
         return entry
+
+
+class _VideoTask(QRunnable):
+    """Fetch the original video for a song that was downloaded as audio only.
+
+    Songs with lyrics are pulled audio-only, which is much faster and smaller.
+    If the singer then wants to watch the video instead, this goes and gets it
+    without disturbing whatever is playing.
+    """
+
+    def __init__(self, job_id: str, entry: SongEntry, manager: "JobManager"):
+        super().__init__()
+        self.job_id = job_id
+        self.entry = entry
+        self.manager = manager
+        self.setAutoDelete(True)
+
+    @Slot()
+    def run(self) -> None:
+        entry, job_id = self.entry, self.job_id
+        try:
+            def on_progress(fraction: float, label: str) -> None:
+                self.manager.signals.progress.emit(
+                    job_id, STAGE_DOWNLOAD, fraction,
+                    f"Video {int(fraction * 100)}%" if label == "Downloading"
+                    else label)
+
+            path = self.manager.downloader.download(
+                entry.id, True, on_progress,
+                lambda: self.manager.is_cancelled(job_id))
+            entry.video_path = str(path)
+            self.manager.library.put(entry)
+        except JobCancelled:
+            self.manager.signals.failed.emit(job_id, "Cancelled")
+            return
+        except Exception as exc:
+            logger.error("video fetch failed: %s", exc)
+            self.manager.signals.failed.emit(job_id, str(exc))
+            return
+        finally:
+            self.manager.forget(job_id)
+        self.manager.signals.progress.emit(job_id, STAGE_READY, 1.0, "Video ready")
+        self.manager.signals.finished.emit(job_id, entry)
 
 
 class _ImportTask(QRunnable):
@@ -358,6 +410,12 @@ class _ImportTask(QRunnable):
                 vocals, instrumental = engine.separate(self.path, on_separate)
             finally:
                 self.manager.separation_slot.release()
+
+            if found.synced:
+                offset, _ = sync_api.estimate_offset(vocals, found.lines)
+                if offset:
+                    found.offset = offset
+                    lyrics_api.save_cached(song_id, found)
 
             video_exts = {".mp4", ".mkv", ".mov", ".avi", ".webm", ".m4v"}
             entry = SongEntry(
@@ -483,6 +541,14 @@ class JobManager(QObject):
             self._active[job_id] = item.video_id
         self.pool.start(_PrepareTask(job_id, item, self))
         logger.info("job %s queued: %s", job_id, item.title[:60])
+        return job_id
+
+    def fetch_video(self, entry: SongEntry) -> str:
+        """Download the original video for an already-prepared song."""
+        job_id = uuid.uuid4().hex[:12]
+        with self._state_lock:
+            self._active[job_id] = f"video:{entry.id}"
+        self.pool.start(_VideoTask(job_id, entry, self))
         return job_id
 
     def resolve_lyrics(self, entry: SongEntry) -> None:

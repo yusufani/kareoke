@@ -339,10 +339,21 @@ class Autotune:
     # voice — a longer one is heard as a second singer a beat behind.
     GRAIN = 512
 
+    # "snap" pulls to the nearest semitone — correction. "robot" pulls to one
+    # fixed note no matter what you sing, which is the monotone that reads as a
+    # machine rather than a singer.
+    SNAP = "snap"
+    ROBOT = "robot"
+    ROBOT_MIDI = 57.0        # A3, 220 Hz
+
     def __init__(self, sample_rate: int = 44100, channels: int = 2):
         self.sample_rate = sample_rate
         self.channels = channels
         self.amount = 0.0
+        self.mode = self.SNAP
+        self.robot_midi = self.ROBOT_MIDI
+        self._seen: list = []          # detected pitches, for picking the lock note
+        self._locked: float = 0.0      # 0 until the singer's range is known
         self._history = np.zeros(self.WINDOW, dtype=np.float32)
         self._line = DelayLine(self.GRAIN * 6, channels)
         self._read_offset = 0.0
@@ -358,6 +369,25 @@ class Autotune:
         self._line.reset()
         self._read_offset = 0.0
         self._ratio = 1.0
+        self._seen.clear()
+        self._locked = 0.0
+
+    def _lock(self, midi: float) -> float:
+        """The single note robot mode holds, learned from what is being sung.
+
+        Uses the median of the first couple of seconds of detected pitch, so one
+        stray octave error cannot set the note, and then never moves — a lock
+        that drifts is a melody, not a monotone.
+        """
+        if self._locked:
+            return self._locked
+        self._seen.append(midi)
+        if len(self._seen) >= 40:
+            self._locked = float(round(float(np.median(self._seen))))
+            logger.debug("robot voice locked to MIDI %.0f", self._locked)
+            return self._locked
+        # Until there is enough to judge, hold the first note heard.
+        return float(round(self._seen[0]))
 
     def _detect(self) -> float:
         """Fundamental frequency of the rolling window, or 0 if unvoiced."""
@@ -392,13 +422,26 @@ class Autotune:
         freq = self._detect()
         if freq > 0.0:
             midi = 69.0 + 12.0 * np.log2(freq / 440.0)
-            correction = round(midi) - midi
+            if self.mode == self.ROBOT:
+                # One note, held. The note is learned from the singer's own
+                # first few phrases rather than fixed in advance: a bass forced
+                # up to A3 and a soprano dragged down to it both sound broken,
+                # and re-picking the note per phrase would not be a monotone at
+                # all — it would just be a different melody.
+                correction = self._lock(midi) - midi
+                limit = 9.0
+            else:
+                correction = round(midi) - midi
+                limit = 2.0
+            correction = float(np.clip(correction, -limit, limit))
             target = float(2.0 ** ((correction * self.amount) / 12.0))
-            target = float(np.clip(target, 0.87, 1.15))
+            target = float(np.clip(target, 0.6, 1.7))
         else:
             target = 1.0
-        # Glide towards the target so corrections sound sung, not switched.
-        self._ratio += (target - self._ratio) * 0.35
+        # Glide towards the target. Correction should sound sung, so it eases;
+        # a robot should not glide at all, so it snaps.
+        glide = 0.9 if self.mode == self.ROBOT else 0.35
+        self._ratio += (target - self._ratio) * glide
 
         self._line.write(block)
         if abs(self._ratio - 1.0) < 1e-4:
@@ -549,7 +592,12 @@ PRESETS = {
     "Echo River":   {"reverb": 40, "echo": 62, "tune": 0,  "bass": 48, "treble": 58},
     "Cathedral":    {"reverb": 88, "echo": 0,  "tune": 0,  "bass": 45, "treble": 48},
     "Autotune Pop": {"reverb": 20, "echo": 0,  "tune": 85, "bass": 52, "treble": 62},
+    "Robot":        {"reverb": 10, "echo": 0,  "tune": 100, "bass": 42, "treble": 70},
 }
+
+# Presets that lock the voice to a single note instead of correcting it to the
+# nearest one. Kept out of PRESETS because it is a mode, not a knob position.
+PRESET_MODES = {"Robot": "robot"}
 
 FX_PARAMS = ("reverb", "echo", "tune", "bass", "treble")
 
@@ -573,6 +621,7 @@ class MicStrip:
         self.device = None
         self.preset = "Dry"
         self.params = dict(PRESETS["Dry"])
+        self.mode = "snap"
 
         self.gate = NoiseGate(sample_rate)
         self.highpass = HighPass(sample_rate, channels=channels)
@@ -600,6 +649,7 @@ class MicStrip:
         if name in PRESETS:
             self.preset = name
             self.params = dict(PRESETS[name])
+            self.mode = PRESET_MODES.get(name, "snap")
             self.apply_params()
 
     def set_param(self, key: str, value: float) -> None:
@@ -612,11 +662,14 @@ class MicStrip:
 
     def _match_preset(self) -> str:
         for name, values in PRESETS.items():
+            if PRESET_MODES.get(name, "snap") != self.mode:
+                continue
             if all(abs(self.params[k] - values[k]) < 0.5 for k in FX_PARAMS):
                 return name
         return "Custom"
 
     def apply_params(self) -> None:
+        self.autotune.mode = self.mode
         self.reverb.set_amount(self.params["reverb"] / 100.0)
         self.echo.set_amount(self.params["echo"] / 100.0)
         self.autotune.amount = self.params["tune"] / 100.0
